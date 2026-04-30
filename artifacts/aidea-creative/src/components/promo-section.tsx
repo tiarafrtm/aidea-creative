@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 export function PromoSection() {
-  const { data } = useListPromo({ query: { queryKey: getListPromoQueryKey() } });
+  const { data } = useListPromo();
   const now = Date.now();
   const items = (Array.isArray(data) ? data : []).filter((p) => {
     if (!p.isAktif || !p.tampilCard) return false;

@@ -30,9 +30,9 @@ export default function Dashboard() {
   const { signOut, profile } = useAuth();
   const queryClient = useQueryClient();
   
-  const { data: stats, isLoading: loadingStats } = useGetDashboardStats({ query: { queryKey: getGetDashboardStatsQueryKey() } });
-  const { data: recentBookings, isLoading: loadingBookings } = useGetRecentBookings({ query: { queryKey: getGetRecentBookingsQueryKey() } });
-  const { data: paketList, isLoading: loadingPaket } = useListPaket({ query: { queryKey: getListPaketQueryKey() } });
+  const { data: stats, isLoading: loadingStats } = useGetDashboardStats();
+  const { data: recentBookings, isLoading: loadingBookings } = useGetRecentBookings();
+  const { data: paketList, isLoading: loadingPaket } = useListPaket();
   
   const updateBookingStatus = useUpdateBookingStatus();
 

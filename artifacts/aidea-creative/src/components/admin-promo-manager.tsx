@@ -88,7 +88,7 @@ const toBody = (f: PromoForm) => ({
 export function AdminPromoManager() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { data, isLoading } = useListPromo({ query: { queryKey: getListPromoQueryKey() } });
+  const { data, isLoading } = useListPromo();
   const promos = Array.isArray(data) ? data : [];
 
   const [open, setOpen] = useState(false);

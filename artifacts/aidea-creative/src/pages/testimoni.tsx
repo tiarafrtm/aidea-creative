@@ -24,7 +24,7 @@ export default function Testimoni() {
   const { toast } = useToast();
   const { user, profile } = useAuth();
   const [open, setOpen] = useState(false);
-  const { data: testimoniList, isLoading, refetch } = useListTestimoni({ query: { queryKey: getListTestimoniQueryKey() } });
+  const { data: testimoniList, isLoading, refetch } = useListTestimoni();
   const createTestimoni = useCreateTestimoni();
 
   const form = useForm<z.infer<typeof testimoniSchema>>({

@@ -21,7 +21,7 @@ const statusColor: Record<string, string> = {
 };
 
 export default function AdminBooking() {
-  const { data, isLoading } = useGetRecentBookings({ query: { queryKey: getGetRecentBookingsQueryKey() } });
+  const { data, isLoading } = useGetRecentBookings();
   const updateStatus = useUpdateBookingStatus();
   const qc = useQueryClient();
   const { toast } = useToast();

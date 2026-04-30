@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { SupabaseMultiUploader } from "@/components/supabase-multi-uploader";
 import { adminFetch } from "@/lib/admin-api";
+import { QueryError } from "@/components/query-error";
 
 const kategoriOptions = ["album", "frame", "cetak", "aksesoris", "lainnya"];
 
@@ -52,7 +53,7 @@ function destroySupabaseUrl(url: string) {
 export default function AdminProduk() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { data, isLoading } = useListProduk({ query: { queryKey: getListProdukQueryKey() } });
+  const { data, isLoading, error, refetch, isFetching } = useListProduk();
   const createM = useCreateProduk();
   const updateM = useUpdateProduk();
   const deleteM = useDeleteProduk();
@@ -156,6 +157,15 @@ export default function AdminProduk() {
           <Plus className="mr-2 h-4 w-4" /> Tambah Produk
         </Button>
       </div>
+      {error && !isFetching && (
+        <div className="mb-4">
+          <QueryError
+            error={error}
+            onRetry={() => refetch()}
+            title="Gagal memuat daftar produk"
+          />
+        </div>
+      )}
       <Card>
         <CardContent className="p-0 overflow-x-auto">
           {isLoading ? (

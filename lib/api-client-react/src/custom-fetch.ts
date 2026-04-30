@@ -351,10 +351,22 @@ export async function customFetch<T = unknown>(
 
   // Attach bearer token when an auth getter is configured and no
   // Authorization header has been explicitly provided.
+  // The getter is wrapped in a short timeout so a stalled Supabase session
+  // refresh (e.g. a hung token-refresh network call) can never block the
+  // outgoing request indefinitely. Public endpoints proceed without a token;
+  // private ones return 401 and surface a real error to the caller.
   if (_authTokenGetter && !headers.has("authorization")) {
-    const token = await _authTokenGetter();
-    if (token) {
-      headers.set("authorization", `Bearer ${token}`);
+    try {
+      const getter = _authTokenGetter;
+      const token = await Promise.race<string | null>([
+        Promise.resolve().then(() => getter()),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
+      ]);
+      if (token) {
+        headers.set("authorization", `Bearer ${token}`);
+      }
+    } catch {
+      // Swallow getter errors — proceed without auth and let the server decide.
     }
   }
 

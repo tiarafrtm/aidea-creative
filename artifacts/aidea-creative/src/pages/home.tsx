@@ -74,10 +74,10 @@ const heroColumns = [
 
 export default function Home() {
   const { data: settings } = useSiteSettings();
-  const { data: paketList, isLoading: loadingPaket } = useListPaket({ query: { queryKey: getListPaketQueryKey() } });
-  const { data: testimoniList } = useListTestimoni({ query: { queryKey: getListTestimoniQueryKey() } });
-  const { data: promoList } = useListPromo({ query: { queryKey: getListPromoQueryKey() } });
-  const { data: portfolioList } = useListPortfolio({ query: { queryKey: getListPortfolioQueryKey() } });
+  const { data: paketList, isLoading: loadingPaket } = useListPaket();
+  const { data: testimoniList } = useListTestimoni();
+  const { data: promoList } = useListPromo();
+  const { data: portfolioList } = useListPortfolio();
 
   // Build hero collage from real Portfolio entries (featured first), falling
   // back to the static gallery if the admin hasn't uploaded enough photos yet.

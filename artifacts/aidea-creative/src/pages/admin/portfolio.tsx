@@ -14,11 +14,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { CloudinaryUploader } from "@/components/cloudinary-uploader";
 import { adminFetch } from "@/lib/admin-api";
 import { useToast } from "@/hooks/use-toast";
+import { QueryError } from "@/components/query-error";
 
 export default function AdminPortfolio() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { data, isLoading } = useListPortfolio({ query: { queryKey: getListPortfolioQueryKey() } });
+  const { data, isLoading, error, refetch, isFetching } = useListPortfolio();
   const createM = useCreatePortfolio();
   const deleteM = useDeletePortfolio();
   const [open, setOpen] = useState(false);
@@ -52,6 +53,9 @@ export default function AdminPortfolio() {
   return (
     <AdminLayout title="Manajemen Portfolio" subtitle="Foto hasil kerja — tampil di homepage & halaman login.">
       <div className="flex justify-end mb-4"><Button onClick={() => setOpen(true)}><Plus className="mr-2 h-4 w-4" /> Tambah Portfolio</Button></div>
+      {error && !isFetching && (
+        <div className="mb-4"><QueryError error={error} onRetry={() => refetch()} title="Gagal memuat portfolio" /></div>
+      )}
       {isLoading ? <Skeleton className="h-40 w-full" /> : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.length === 0 ? <p className="text-muted-foreground col-span-full">Belum ada portfolio.</p> : items.map((p: any) => {

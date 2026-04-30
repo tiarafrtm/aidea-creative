@@ -15,7 +15,7 @@ const kategoriLabel: Record<string, string> = {
 };
 
 export default function Toko() {
-  const { data: produkList, isLoading } = useListProduk({ query: { queryKey: getListProdukQueryKey() } });
+  const { data: produkList, isLoading } = useListProduk();
   const [searchQuery, setSearchQuery] = useState("");
 
   const produkArray = Array.isArray(produkList) ? produkList : [];

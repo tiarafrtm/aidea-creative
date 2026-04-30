@@ -68,8 +68,8 @@ export default function LayananDetail() {
   const params = useParams<{ slug: string }>();
   const layanan = getLayananBySlug(params.slug ?? "");
 
-  const { data: kategoriList } = useListKategori({ query: { queryKey: getListKategoriQueryKey() } });
-  const { data: paketList, isLoading: loadingPaket } = useListPaket({ query: { queryKey: getListPaketQueryKey() } });
+  const { data: kategoriList } = useListKategori();
+  const { data: paketList, isLoading: loadingPaket } = useListPaket();
 
   if (!layanan) return <NotFound />;
 

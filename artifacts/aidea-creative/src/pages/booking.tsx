@@ -35,8 +35,8 @@ export default function Booking() {
   const { toast } = useToast();
   const { user, profile } = useAuth();
   
-  const { data: paketList, isLoading: loadingPaket } = useListPaket({ query: { queryKey: getListPaketQueryKey() } });
-  const { data: jadwalList } = useListJadwal({ query: { queryKey: getListJadwalQueryKey() } });
+  const { data: paketList, isLoading: loadingPaket } = useListPaket();
+  const { data: jadwalList } = useListJadwal();
   const createBooking = useCreateBooking();
 
   const form = useForm<z.infer<typeof bookingSchema>>({

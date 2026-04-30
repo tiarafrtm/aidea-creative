@@ -12,15 +12,17 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { Link } from "wouter";
+import { QueryError } from "@/components/query-error";
 
 const STATUS_COLORS: Record<string, string> = {
   menunggu: "#f59e0b", dikonfirmasi: "#3b82f6", selesai: "#10b981", dibatalkan: "#ef4444",
 };
 
 export default function AdminBeranda() {
-  const { data: stats, isLoading: loadingStats } = useGetDashboardStats({ query: { queryKey: getGetDashboardStatsQueryKey() } });
-  const { data: byStatus } = useGetBookingByStatus({ query: { queryKey: getGetBookingByStatusQueryKey() } });
-  const { data: recent } = useGetRecentBookings({ query: { queryKey: getGetRecentBookingsQueryKey() } });
+  const { data: stats, isLoading: loadingStats, error: errStats, refetch: refetchStats, isFetching: fetchingStats } = useGetDashboardStats();
+  const { data: byStatus, error: errByStatus } = useGetBookingByStatus();
+  const { data: recent, error: errRecent } = useGetRecentBookings();
+  const dashboardError = errStats ?? errByStatus ?? errRecent;
   const aiChat = useAiChat();
   const [insight, setInsight] = useState<string>("");
 
@@ -40,6 +42,9 @@ export default function AdminBeranda() {
 
   return (
     <AdminLayout title="Beranda Dashboard" subtitle="Ringkasan performa studio hari ini.">
+      {dashboardError && !fetchingStats && (
+        <div className="mb-4"><QueryError error={dashboardError} onRetry={() => refetchStats()} title="Gagal memuat data dashboard" /></div>
+      )}
       {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard label="Total Booking" icon={CalendarRange} value={stats?.totalBooking} sub={`+${stats?.bookingBulanIni ?? 0} bulan ini`} loading={loadingStats} />

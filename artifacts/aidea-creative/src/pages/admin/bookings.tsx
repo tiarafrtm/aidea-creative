@@ -11,13 +11,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
+import { QueryError } from "@/components/query-error";
 
 const statuses = ["semua", "menunggu", "dikonfirmasi", "selesai", "dibatalkan"] as const;
 
 export default function AdminBookings() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { data, isLoading } = useGetRecentBookings({ query: { queryKey: getGetRecentBookingsQueryKey() } });
+  const { data, isLoading, error, refetch, isFetching } = useGetRecentBookings();
   const mutate = useUpdateBookingStatus();
   const [filter, setFilter] = useState<(typeof statuses)[number]>("semua");
   const [search, setSearch] = useState("");
@@ -58,6 +59,9 @@ export default function AdminBookings() {
         </CardContent>
       </Card>
 
+      {error && !isFetching && (
+        <div className="mb-4"><QueryError error={error} onRetry={() => refetch()} title="Gagal memuat daftar booking" /></div>
+      )}
       <Card>
         <CardContent className="p-0 overflow-x-auto">
           {isLoading ? (

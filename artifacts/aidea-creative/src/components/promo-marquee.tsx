@@ -5,7 +5,7 @@ import { useListPromo, getListPromoQueryKey } from "@workspace/api-client-react"
 const FALLBACK_TEXT = "Selamat datang di AideaCreative — Studio foto profesional di Pujodadi, Pringsewu";
 
 export function PromoMarquee() {
-  const { data, isFetched } = useListPromo({ query: { queryKey: getListPromoQueryKey() } });
+  const { data, isFetched } = useListPromo();
   const now = Date.now();
   const items = (Array.isArray(data) ? data : []).filter((p) => {
     if (!p.isAktif || !p.tampilMarquee) return false;

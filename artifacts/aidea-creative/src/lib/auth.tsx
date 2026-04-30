@@ -26,9 +26,23 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+// Race a promise against a timeout. If the promise doesn't settle in
+// `ms` milliseconds, resolve with `fallback`. Used to prevent rare
+// stalled supabase auth calls from freezing the UI.
+function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race<T>([
+    p,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
+
 async function loadProfile(_userId: string): Promise<Profile | null> {
   if (!supabase) return null;
-  const { data: sess } = await supabase.auth.getSession();
+  const { data: sess } = await withTimeout(
+    supabase.auth.getSession(),
+    1500,
+    { data: { session: null } } as Awaited<ReturnType<typeof supabase.auth.getSession>>,
+  );
   const token = sess.session?.access_token;
   if (!token) return null;
   // Use server-side /api/me which auto-provisions the profile row and
@@ -73,7 +87,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setAuthTokenGetter(async () => {
       if (!supabase) return null;
-      const { data } = await supabase.auth.getSession();
+      const { data } = await withTimeout(
+        supabase.auth.getSession(),
+        1200,
+        { data: { session: null } } as Awaited<ReturnType<typeof supabase.auth.getSession>>,
+      );
       return data.session?.access_token ?? null;
     });
 
@@ -91,7 +109,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }, 3000);
 
-    supabase.auth.getSession().then(async ({ data }) => {
+    withTimeout(
+      supabase.auth.getSession(),
+      2500,
+      { data: { session: null } } as Awaited<ReturnType<typeof supabase.auth.getSession>>,
+    ).then(async ({ data }) => {
       if (!mounted) return;
       setSession(data.session);
       if (data.session?.user.id) {

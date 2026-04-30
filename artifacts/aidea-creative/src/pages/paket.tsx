@@ -10,8 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 
 export default function Paket() {
-  const { data: paketList, isLoading } = useListPaket({ query: { queryKey: getListPaketQueryKey() } });
-  const { data: kategoriList } = useListKategori({ query: { queryKey: getListKategoriQueryKey() } });
+  const { data: paketList, isLoading } = useListPaket();
+  const { data: kategoriList } = useListKategori();
   const search = useSearch();
   const [filter, setFilter] = useState<string>("Semua");
 

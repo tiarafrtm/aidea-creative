@@ -1,5 +1,11 @@
 # AideaCreative Studio Foto - Smart Web E-Commerce
 
+## Latest Updates (Apr 30, 2026)
+- **FIX: queries hanging forever on admin pages.** `customFetch` always awaited the auth token getter (which calls `supabase.auth.getSession()`); a stalled token-refresh would freeze every query indefinitely (skeleton never resolves). Wrapped the getter in a 1.5s timeout in `lib/api-client-react/src/custom-fetch.ts` and added similar timeouts around `getSession()` in `artifacts/aidea-creative/src/lib/auth.tsx` (loadProfile + bootstrap). Public endpoints proceed without a token; private ones now surface a real error.
+- **Better admin error UX.** Added `<QueryError />` with retry button, wired into admin produk / portfolio / bookings / beranda pages so failed loads are visible (no more endless skeletons).
+- **Cleanup.** Removed redundant `query: { queryKey: ... }` overrides across all `useList*` calls in admin & public pages — generated hooks already supply the default key.
+- **Fix: image upload 413.** Bumped Express body limit to 12mb in `artifacts/api-server/src/app.ts` (raw image cap is 10MB, base64 inflates ~1.37x).
+
 ## Latest Updates (Apr 2026)
 - Admin dashboard expanded: **Kelola Pengguna**, **Kelola Konten Landing Page** (incl. login bg image), **Kelola Banner Promo** (split into its own page).
 - Cloudinary signed direct uploads via `/api/upload/cloudinary/sign` + reusable `<CloudinaryUploader />` component.
