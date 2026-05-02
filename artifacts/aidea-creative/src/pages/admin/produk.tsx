@@ -20,6 +20,19 @@ import { QueryError } from "@/components/query-error";
 
 const kategoriOptions = ["album", "frame", "cetak", "aksesoris", "lainnya"];
 
+const CETAK_PRESETS = ["4R (10×15cm)", "5R (13×18cm)", "6R (15×20cm)", "A4 (21×29.7cm)", "A3 (29.7×42cm)", "20×30cm", "30×45cm"];
+const KATEGORI_SHOW_UKURAN = ["album", "frame", "cetak"];
+
+const ukuranLabel: Record<string, string> = {
+  album: "Ukuran Album",
+  frame: "Ukuran Bingkai",
+  cetak: "Ukuran Cetak",
+};
+const ukuranPlaceholder: Record<string, string> = {
+  album: "Contoh: 20×20cm, A4, A3...",
+  frame: "Contoh: 10×15cm, 20×30cm...",
+};
+
 type ProdukForm = {
   namaProduk: string;
   deskripsi: string;
@@ -61,6 +74,7 @@ export default function AdminProduk() {
   const [editing, setEditing] = useState<any>(null);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<ProdukForm>(emptyForm);
+  const [cetakCustom, setCetakCustom] = useState(false);
   // Track URLs that existed when the dialog opened — used to clean up images
   // the admin removed from an existing product upon save.
   const [originalUrls, setOriginalUrls] = useState<string[]>([]);
@@ -71,6 +85,7 @@ export default function AdminProduk() {
     setEditing(null);
     setForm(emptyForm);
     setOriginalUrls([]);
+    setCetakCustom(false);
     setOpen(true);
   };
 
@@ -88,6 +103,7 @@ export default function AdminProduk() {
       isAktif: p.isAktif ?? true,
     });
     setOriginalUrls(urls);
+    setCetakCustom(!!(p.ukuran && p.kategori === "cetak" && !CETAK_PRESETS.includes(p.ukuran)));
     setOpen(true);
   };
 
@@ -287,7 +303,7 @@ export default function AdminProduk() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Kategori</Label>
-                <Select value={form.kategori} onValueChange={(v) => setForm({ ...form, kategori: v })}>
+                <Select value={form.kategori} onValueChange={(v) => { setForm({ ...form, kategori: v, ukuran: "" }); setCetakCustom(false); }}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -305,20 +321,57 @@ export default function AdminProduk() {
                 <Input type="number" value={form.harga} onChange={(e) => setForm({ ...form, harga: e.target.value })} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Stok</Label>
-                <Input type="number" value={form.stok} onChange={(e) => setForm({ ...form, stok: e.target.value })} />
-              </div>
-              <div>
-                <Label>Ukuran</Label>
-                <Input
-                  value={form.ukuran ?? ""}
-                  onChange={(e) => setForm({ ...form, ukuran: e.target.value })}
-                  placeholder="10x15, A4, dll"
-                />
-              </div>
+            <div>
+              <Label>Stok</Label>
+              <Input type="number" value={form.stok} onChange={(e) => setForm({ ...form, stok: e.target.value })} />
             </div>
+
+            {/* Ukuran — hanya untuk kategori yang relevan */}
+            {KATEGORI_SHOW_UKURAN.includes(form.kategori) && (
+              <div>
+                <Label>{ukuranLabel[form.kategori] ?? "Ukuran"}</Label>
+                {form.kategori === "cetak" ? (
+                  <div className="space-y-2">
+                    <Select
+                      value={cetakCustom ? "__custom__" : (form.ukuran || "")}
+                      onValueChange={(v) => {
+                        if (v === "__custom__") {
+                          setCetakCustom(true);
+                          setForm({ ...form, ukuran: "" });
+                        } else {
+                          setCetakCustom(false);
+                          setForm({ ...form, ukuran: v });
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Pilih ukuran cetak..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CETAK_PRESETS.map((s) => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                        <SelectItem value="__custom__">Ukuran lain (ketik manual)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {cetakCustom && (
+                      <Input
+                        value={form.ukuran ?? ""}
+                        onChange={(e) => setForm({ ...form, ukuran: e.target.value })}
+                        placeholder="Contoh: 15×21cm, 25×35cm..."
+                        autoFocus
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <Input
+                    value={form.ukuran ?? ""}
+                    onChange={(e) => setForm({ ...form, ukuran: e.target.value })}
+                    placeholder={ukuranPlaceholder[form.kategori] ?? "Ukuran..."}
+                  />
+                )}
+              </div>
+            )}
             <div>
               <div className="flex items-center justify-between mb-1">
                 <Label>Deskripsi</Label>

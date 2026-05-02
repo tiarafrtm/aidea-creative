@@ -80,9 +80,14 @@ function ProductDetail({ produk, onClose }: { produk: Produk; onClose: () => voi
           </div>
 
           <div className="p-6 flex flex-col">
-            <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">
-              {kategoriLabel[produk.kategori] ?? produk.kategori}
-              {produk.ukuran && ` · ${produk.ukuran}`}
+            <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider flex items-center gap-2 flex-wrap">
+              <span>{kategoriLabel[produk.kategori] ?? produk.kategori}</span>
+              {produk.ukuran && ["cetak", "album", "frame"].includes(produk.kategori) && (
+                <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold normal-case text-[11px]">
+                  {produk.kategori === "cetak" ? "Ukuran " : produk.kategori === "album" ? "Album " : "Bingkai "}
+                  {produk.ukuran}
+                </span>
+              )}
             </div>
             <h2 className="text-2xl font-serif font-bold leading-tight mb-3">{produk.namaProduk}</h2>
             <div className="text-2xl font-bold text-primary mb-4">Rp {produk.harga.toLocaleString("id-ID")}</div>
