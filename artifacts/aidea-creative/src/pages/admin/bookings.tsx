@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useGetRecentBookings, getGetRecentBookingsQueryKey, useUpdateBookingStatus } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, Clock, X, Search, Eye, MessageCircle, CalendarDays, Phone, Mail, FileText, Package, Banknote, Lightbulb } from "lucide-react";
+import { Check, Clock, X, Search, Eye, MessageCircle, CalendarDays, Phone, Mail, FileText, Package, Banknote, Lightbulb, Wallet } from "lucide-react";
 import { AdminLayout } from "@/components/admin-layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -57,7 +57,8 @@ export default function AdminBookings() {
   );
 
   const setStatus = (id: string, status: "dikonfirmasi" | "selesai" | "dibatalkan") => {
-    mutate.mutate({ id, data: { status } }, {
+    const curStatusBayar = detailBooking?.statusPembayaran ?? "belum_bayar";
+    mutate.mutate({ id, data: { status, statusPembayaran: curStatusBayar } }, {
       onSuccess: () => {
         toast({ title: "Status diperbarui" });
         qc.invalidateQueries({ queryKey: getGetRecentBookingsQueryKey() });
@@ -68,6 +69,22 @@ export default function AdminBookings() {
       },
       onError: () => {
         toast({ title: "Gagal memperbarui status", variant: "destructive" });
+      },
+    });
+  };
+
+  const setStatusBayar = (id: string, statusPembayaran: "belum_bayar" | "dp" | "lunas") => {
+    const curStatus = detailBooking?.status ?? "menunggu";
+    mutate.mutate({ id, data: { status: curStatus, statusPembayaran } }, {
+      onSuccess: () => {
+        toast({ title: "Status pembayaran diperbarui" });
+        qc.invalidateQueries({ queryKey: getGetRecentBookingsQueryKey() });
+        if (detailBooking?.id === id) {
+          setDetailBooking((prev: any) => prev ? { ...prev, statusPembayaran } : prev);
+        }
+      },
+      onError: () => {
+        toast({ title: "Gagal memperbarui status pembayaran", variant: "destructive" });
       },
     });
   };
@@ -92,6 +109,12 @@ export default function AdminBookings() {
     dikonfirmasi: <Badge className="bg-blue-500/10 text-blue-700 border-blue-500/20" variant="outline"><Check className="mr-1 h-3 w-3" />Dikonfirmasi</Badge>,
     selesai: <Badge className="bg-emerald-500/10 text-emerald-700 border-emerald-500/20" variant="outline"><Check className="mr-1 h-3 w-3" />Selesai</Badge>,
     dibatalkan: <Badge className="bg-red-500/10 text-red-700 border-red-500/20" variant="outline"><X className="mr-1 h-3 w-3" />Dibatalkan</Badge>,
+  } as any)[s] ?? <Badge>{s}</Badge>;
+
+  const bayarBadge = (s: string) => ({
+    belum_bayar: <Badge className="bg-orange-500/10 text-orange-700 border-orange-500/20" variant="outline"><Wallet className="mr-1 h-3 w-3" />Belum Bayar</Badge>,
+    dp: <Badge className="bg-sky-500/10 text-sky-700 border-sky-500/20" variant="outline"><Wallet className="mr-1 h-3 w-3" />DP</Badge>,
+    lunas: <Badge className="bg-emerald-500/10 text-emerald-700 border-emerald-500/20" variant="outline"><Check className="mr-1 h-3 w-3" />Lunas</Badge>,
   } as any)[s] ?? <Badge>{s}</Badge>;
 
   return (
@@ -166,7 +189,12 @@ export default function AdminBookings() {
                         <div className="text-sm">{formatTanggal(b.tanggalSesi)}</div>
                         <div className="text-xs text-muted-foreground">{b.jamSesi}</div>
                       </TableCell>
-                      <TableCell>{statusBadge(b.status)}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          {statusBadge(b.status)}
+                          {bayarBadge(b.statusPembayaran)}
+                        </div>
+                      </TableCell>
                       <TableCell className="font-semibold">Rp {Number(b.totalHarga).toLocaleString("id-ID")}</TableCell>
                       <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
@@ -242,8 +270,12 @@ export default function AdminBookings() {
 
               <div className="space-y-5">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Status</span>
+                  <span className="text-sm text-muted-foreground">Status Booking</span>
                   {statusBadge(detailBooking.status)}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Status Pembayaran</span>
+                  {bayarBadge(detailBooking.statusPembayaran)}
                 </div>
 
                 <Separator />
@@ -322,6 +354,38 @@ export default function AdminBookings() {
                     </div>
                   </>
                 )}
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ubah Status Pembayaran</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(["belum_bayar", "dp", "lunas"] as const).map((s) => {
+                      const labels = { belum_bayar: "Belum Bayar", dp: "DP", lunas: "Lunas" };
+                      const active = detailBooking.statusPembayaran === s;
+                      return (
+                        <Button
+                          key={s}
+                          size="sm"
+                          variant={active ? "default" : "outline"}
+                          className={
+                            active
+                              ? s === "lunas"
+                                ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                                : s === "dp"
+                                ? "bg-sky-600 hover:bg-sky-700 text-white"
+                                : "bg-orange-500 hover:bg-orange-600 text-white"
+                              : "text-muted-foreground"
+                          }
+                          disabled={active || mutate.isPending}
+                          onClick={() => setStatusBayar(detailBooking.id, s)}
+                        >
+                          {labels[s]}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
 
                 <Separator />
 
