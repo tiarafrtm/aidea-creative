@@ -143,12 +143,8 @@ export function AdminPromoManager() {
         toast({ title: "Promo dihapus" });
         setConfirmDelete(null);
         invalidate();
-        if (oldImage) {
-          if (/\/storage\/v1\/object\/public\//.test(oldImage)) {
-            adminFetch("/upload/supabase/destroy", { method: "POST", body: JSON.stringify({ url: oldImage, bucket: "promo" }) }).catch(() => {});
-          } else if (/cloudinary\.com/i.test(oldImage)) {
-            adminFetch("/upload/cloudinary/destroy", { method: "POST", body: JSON.stringify({ url: oldImage }) }).catch(() => {});
-          }
+        if (oldImage && /\/storage\/v1\/object\/public\//.test(oldImage)) {
+          adminFetch("/upload/supabase/destroy", { method: "POST", body: JSON.stringify({ url: oldImage, bucket: "promo" }) }).catch(() => {});
         }
       },
       onError: () => toast({ title: "Gagal menghapus", variant: "destructive" }),

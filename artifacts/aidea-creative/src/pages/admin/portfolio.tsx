@@ -44,9 +44,6 @@ export default function AdminPortfolio() {
         urls.filter(Boolean).forEach((u) => {
           if (/\/storage\/v1\/object\/public\//.test(u)) {
             adminFetch("/upload/supabase/destroy", { method: "POST", body: JSON.stringify({ url: u, bucket: "portfolio" }) }).catch(() => {});
-          } else if (/cloudinary\.com/i.test(u)) {
-            // Legacy assets uploaded to Cloudinary before migration.
-            adminFetch("/upload/cloudinary/destroy", { method: "POST", body: JSON.stringify({ url: u }) }).catch(() => {});
           }
         });
       },
