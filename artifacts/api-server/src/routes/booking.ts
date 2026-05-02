@@ -32,6 +32,7 @@ const formatBooking = (
   status: r.status,
   totalHarga: r.totalHarga,
   statusPembayaran: r.statusPembayaran,
+  alasanPembatalan: r.alasanPembatalan ?? null,
   createdAt: r.createdAt.toISOString(),
 });
 
@@ -122,6 +123,41 @@ router.put("/booking/:id", requireAdmin, async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Failed to update booking status");
     res.status(400).json({ error: "Bad request" });
+  }
+});
+
+router.post("/booking/:id/cancel", attachAuth, async (req, res) => {
+  try {
+    if (!req.authUser) return res.status(401).json({ error: "Unauthorized" });
+
+    const [existing] = await db
+      .select()
+      .from(bookingTable)
+      .where(eq(bookingTable.id, req.params.id));
+
+    if (!existing) return res.status(404).json({ error: "Booking tidak ditemukan" });
+    if (existing.pelangganId !== req.authUser.id) return res.status(403).json({ error: "Forbidden" });
+    if (existing.status === "selesai" || existing.status === "dibatalkan") {
+      return res.status(400).json({ error: "Booking tidak dapat dibatalkan" });
+    }
+
+    const alasan: string | null = req.body.alasan ?? null;
+
+    const [row] = await db
+      .update(bookingTable)
+      .set({ status: "dibatalkan", alasanPembatalan: alasan, updatedAt: new Date() })
+      .where(eq(bookingTable.id, req.params.id))
+      .returning();
+
+    const [paketRow] = await db
+      .select({ namaPaket: paketLayananTable.namaPaket })
+      .from(paketLayananTable)
+      .where(eq(paketLayananTable.id, row.paketId));
+
+    res.json(formatBooking(row, paketRow?.namaPaket));
+  } catch (err) {
+    req.log.error({ err }, "Failed to cancel booking");
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 

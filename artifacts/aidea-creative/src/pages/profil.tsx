@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  AlertTriangle,
+  Ban,
   CalendarCheck,
   CalendarDays,
   ChevronRight,
@@ -53,6 +55,7 @@ type BookingRow = {
   total_harga: number;
   created_at: string;
   paket_layanan: { nama_paket: string; harga: number } | null;
+  alasan_pembatalan?: string | null;
 };
 
 type PesananRow = {
@@ -334,6 +337,8 @@ export default function Profil() {
   const [dataLoading, setDataLoading] = useState(false);
 
   const [selectedBooking, setSelectedBooking] = useState<BookingRow | null>(null);
+  const [cancelDialog, setCancelDialog] = useState<{ booking: BookingRow; alasan: string } | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -425,6 +430,53 @@ export default function Profil() {
     setIsUploading(false);
     await refreshProfile();
     toast({ title: "Foto profil diperbarui" });
+  };
+
+  const cancelBooking = async () => {
+    if (!cancelDialog || !supabase) return;
+    setIsCancelling(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await fetch(
+        `/api/booking/${cancelDialog.booking.id}/cancel`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ alasan: cancelDialog.alasan.trim() || null }),
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Gagal membatalkan booking");
+      }
+      const updated = await res.json();
+      setBooking((prev) =>
+        prev.map((b) =>
+          b.id === cancelDialog.booking.id
+            ? {
+                ...b,
+                status: updated.status,
+                alasan_pembatalan: updated.alasanPembatalan ?? null,
+              }
+            : b
+        )
+      );
+      setSelectedBooking((prev) =>
+        prev?.id === cancelDialog.booking.id
+          ? { ...prev, status: "dibatalkan", alasan_pembatalan: updated.alasanPembatalan ?? null }
+          : prev
+      );
+      setCancelDialog(null);
+      toast({ title: "Booking dibatalkan", description: "Pemesanan Anda telah berhasil dibatalkan." });
+    } catch (e: any) {
+      toast({ title: "Gagal membatalkan", description: e.message, variant: "destructive" });
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
   const initials =
@@ -869,6 +921,16 @@ export default function Profil() {
                 </div>
               </div>
 
+              {selectedBooking.alasan_pembatalan && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 flex gap-2.5">
+                  <AlertTriangle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs font-semibold text-red-700 mb-0.5">Alasan Pembatalan</p>
+                    <p className="text-sm text-red-700">{selectedBooking.alasan_pembatalan}</p>
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-col gap-2 pt-1">
                 <Button
                   className="w-full gap-2"
@@ -877,12 +939,88 @@ export default function Profil() {
                   <Printer className="h-4 w-4" />
                   Cetak / Unduh Struk
                 </Button>
+                {(selectedBooking.status === "menunggu" || selectedBooking.status === "dikonfirmasi") && (
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                    onClick={() => setCancelDialog({ booking: selectedBooking, alasan: "" })}
+                  >
+                    <Ban className="h-4 w-4" />
+                    Batalkan Booking
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   className="w-full"
                   onClick={() => setSelectedBooking(null)}
                 >
                   Tutup
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Cancel Booking Dialog ── */}
+      <Dialog open={!!cancelDialog} onOpenChange={(open) => !open && setCancelDialog(null)}>
+        <DialogContent className="w-[calc(100%-2rem)] sm:w-full max-w-md rounded-xl">
+          {cancelDialog && (
+            <>
+              <DialogHeader>
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                    <Ban className="h-5 w-5 text-red-600" />
+                  </div>
+                  <div>
+                    <DialogTitle>Batalkan Booking?</DialogTitle>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {cancelDialog.booking.kode_booking}
+                    </p>
+                  </div>
+                </div>
+              </DialogHeader>
+
+              <p className="text-sm text-muted-foreground -mt-1">
+                Tindakan ini tidak dapat dibatalkan. Booking yang sudah dibatalkan tidak bisa diaktifkan kembali.
+              </p>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="alasanBatal" className="text-sm">
+                  Alasan Pembatalan <span className="text-muted-foreground font-normal">(opsional)</span>
+                </Label>
+                <Textarea
+                  id="alasanBatal"
+                  placeholder="Contoh: Jadwal berubah, ada keperluan mendadak, dll."
+                  className="resize-none"
+                  rows={3}
+                  value={cancelDialog.alasan}
+                  onChange={(e) =>
+                    setCancelDialog((prev) => prev ? { ...prev, alasan: e.target.value } : prev)
+                  }
+                />
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setCancelDialog(null)}
+                  disabled={isCancelling}
+                >
+                  Batal
+                </Button>
+                <Button
+                  className="flex-1 bg-red-600 hover:bg-red-700 gap-2"
+                  onClick={cancelBooking}
+                  disabled={isCancelling}
+                >
+                  {isCancelling ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Ban className="h-4 w-4" />
+                  )}
+                  Ya, Batalkan
                 </Button>
               </div>
             </>
