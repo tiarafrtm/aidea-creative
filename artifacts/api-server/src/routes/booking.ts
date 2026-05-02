@@ -33,6 +33,7 @@ const formatBooking = (
   totalHarga: r.totalHarga,
   statusPembayaran: r.statusPembayaran,
   alasanPembatalan: r.alasanPembatalan ?? null,
+  dibatalkanOleh: r.dibatalkanOleh ?? null,
   createdAt: r.createdAt.toISOString(),
 });
 
@@ -106,6 +107,7 @@ router.put("/booking/:id", requireAdmin, async (req, res) => {
     const updateData: Record<string, unknown> = {};
     if (body.status) updateData.status = body.status;
     if (body.statusPembayaran) updateData.statusPembayaran = body.statusPembayaran;
+    if (body.status === "dibatalkan") updateData.dibatalkanOleh = "admin";
 
     const [row] = await db
       .update(bookingTable)
@@ -145,7 +147,7 @@ router.post("/booking/:id/cancel", attachAuth, async (req, res) => {
 
     const [row] = await db
       .update(bookingTable)
-      .set({ status: "dibatalkan", alasanPembatalan: alasan, updatedAt: new Date() })
+      .set({ status: "dibatalkan", alasanPembatalan: alasan, dibatalkanOleh: "pelanggan", updatedAt: new Date() })
       .where(eq(bookingTable.id, req.params.id))
       .returning();
 

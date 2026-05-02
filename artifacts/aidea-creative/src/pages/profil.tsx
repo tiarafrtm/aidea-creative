@@ -56,6 +56,7 @@ type BookingRow = {
   created_at: string;
   paket_layanan: { nama_paket: string; harga: number } | null;
   alasan_pembatalan?: string | null;
+  dibatalkan_oleh?: string | null;
 };
 
 type PesananRow = {
@@ -467,7 +468,7 @@ export default function Profil() {
       );
       setSelectedBooking((prev) =>
         prev?.id === cancelDialog.booking.id
-          ? { ...prev, status: "dibatalkan", alasan_pembatalan: updated.alasanPembatalan ?? null }
+          ? { ...prev, status: "dibatalkan", alasan_pembatalan: updated.alasanPembatalan ?? null, dibatalkan_oleh: "pelanggan" }
           : prev
       );
       setCancelDialog(null);
@@ -921,12 +922,30 @@ export default function Profil() {
                 </div>
               </div>
 
-              {selectedBooking.alasan_pembatalan && (
-                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 flex gap-2.5">
-                  <AlertTriangle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs font-semibold text-red-700 mb-0.5">Alasan Pembatalan</p>
-                    <p className="text-sm text-red-700">{selectedBooking.alasan_pembatalan}</p>
+              {selectedBooking.status === "dibatalkan" && (
+                <div className={`rounded-lg border px-4 py-3 flex gap-2.5 ${
+                  selectedBooking.dibatalkan_oleh === "pelanggan"
+                    ? "border-orange-200 bg-orange-50"
+                    : "border-red-200 bg-red-50"
+                }`}>
+                  <AlertTriangle className={`h-4 w-4 shrink-0 mt-0.5 ${
+                    selectedBooking.dibatalkan_oleh === "pelanggan" ? "text-orange-500" : "text-red-500"
+                  }`} />
+                  <div className="space-y-0.5">
+                    <p className={`text-xs font-semibold ${
+                      selectedBooking.dibatalkan_oleh === "pelanggan" ? "text-orange-700" : "text-red-700"
+                    }`}>
+                      {selectedBooking.dibatalkan_oleh === "pelanggan"
+                        ? "Dibatalkan oleh Anda"
+                        : "Dibatalkan oleh Studio"}
+                    </p>
+                    {selectedBooking.alasan_pembatalan && (
+                      <p className={`text-sm ${
+                        selectedBooking.dibatalkan_oleh === "pelanggan" ? "text-orange-700" : "text-red-700"
+                      }`}>
+                        {selectedBooking.alasan_pembatalan}
+                      </p>
+                    )}
                   </div>
                 </div>
               )}

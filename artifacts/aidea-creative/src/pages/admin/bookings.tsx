@@ -117,6 +117,9 @@ export default function AdminBookings() {
     lunas: <Badge className="bg-emerald-500/10 text-emerald-700 border-emerald-500/20" variant="outline"><Check className="mr-1 h-3 w-3" />Lunas</Badge>,
   } as any)[s] ?? <Badge>{s}</Badge>;
 
+  const cancelledByLabel = (dibatalkanOleh: string | null | undefined) =>
+    dibatalkanOleh === "pelanggan" ? "Dibatalkan oleh Pelanggan" : "Dibatalkan oleh Studio";
+
   return (
     <AdminLayout title="Manajemen Booking" subtitle="Setujui, tinjau, dan kelola semua reservasi pelanggan.">
       <Card className="mb-4">
@@ -271,12 +274,38 @@ export default function AdminBookings() {
               <div className="space-y-5">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Status Booking</span>
-                  {statusBadge(detailBooking.status)}
+                  <div className="flex flex-col items-end gap-1">
+                    {statusBadge(detailBooking.status)}
+                    {detailBooking.status === "dibatalkan" && (
+                      <span className="text-[10px] text-muted-foreground">
+                        {cancelledByLabel(detailBooking.dibatalkanOleh)}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Status Pembayaran</span>
                   {bayarBadge(detailBooking.statusPembayaran)}
                 </div>
+                {detailBooking.status === "dibatalkan" && detailBooking.alasanPembatalan && (
+                  <div className={`rounded-lg border px-3 py-2.5 flex gap-2 ${
+                    detailBooking.dibatalkanOleh === "pelanggan"
+                      ? "border-orange-200 bg-orange-50"
+                      : "border-red-200 bg-red-50"
+                  }`}>
+                    <X className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${
+                      detailBooking.dibatalkanOleh === "pelanggan" ? "text-orange-500" : "text-red-500"
+                    }`} />
+                    <div>
+                      <p className={`text-[10px] font-semibold uppercase tracking-wider mb-0.5 ${
+                        detailBooking.dibatalkanOleh === "pelanggan" ? "text-orange-600" : "text-red-600"
+                      }`}>Alasan Pembatalan</p>
+                      <p className={`text-xs ${
+                        detailBooking.dibatalkanOleh === "pelanggan" ? "text-orange-700" : "text-red-700"
+                      }`}>{detailBooking.alasanPembatalan}</p>
+                    </div>
+                  </div>
+                )}
 
                 <Separator />
 

@@ -22,6 +22,7 @@ export const bookingTable = pgTable("booking", {
   totalHarga: integer("total_harga").notNull(),
   statusPembayaran: paymentStatusEnum("status_pembayaran").notNull().default("belum_bayar"),
   alasanPembatalan: text("alasan_pembatalan"),
+  dibatalkanOleh: text("dibatalkan_oleh"),
   midtransOrderId: text("midtrans_order_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
