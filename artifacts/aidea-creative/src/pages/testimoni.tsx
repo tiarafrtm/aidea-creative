@@ -11,8 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { useAuth } from "@/lib/auth";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const testimoniSchema = z.object({
   namaTampil: z.string().min(2, "Nama harus diisi"),
@@ -61,6 +63,7 @@ function StarRow({ rating, size = 14 }: { rating: number; size?: number }) {
 export default function Testimoni() {
   const { toast } = useToast();
   const { user, profile } = useAuth();
+  const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const [filterRating, setFilterRating] = useState<number | null>(null);
   const [statsOpen, setStatsOpen] = useState(false);
@@ -101,6 +104,47 @@ export default function Testimoni() {
   }));
 
   const filtered = filterRating ? allList.filter(t => t.rating === filterRating) : allList;
+
+  const reviewFormContent = (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+        <FormField control={form.control} name="namaTampil" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Nama Anda</FormLabel>
+            <FormControl><Input placeholder="John Doe" {...field} /></FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField control={form.control} name="rating" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Penilaian</FormLabel>
+            <div className="flex gap-2">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button key={star} type="button" onClick={() => field.onChange(star)} className="focus:outline-none">
+                  <Star size={28} fill={star <= field.value ? "currentColor" : "none"}
+                    className={star <= field.value ? "text-amber-400" : "text-muted-foreground"} />
+                </button>
+              ))}
+            </div>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField control={form.control} name="komentar" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Ulasan</FormLabel>
+            <FormControl>
+              <Textarea placeholder="Ceritakan pengalaman Anda..." className="resize-none" rows={4} {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <Button type="submit" className="w-full mt-4" disabled={createTestimoni.isPending}>
+          {createTestimoni.isPending && <Loader2 className="animate-spin mr-2" />}
+          Kirim Ulasan
+        </Button>
+      </form>
+    </Form>
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -147,53 +191,30 @@ export default function Testimoni() {
           </button>
         </div>
 
-        {/* Write review dialog (controlled) */}
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle className="font-serif">Tulis Ulasan</DialogTitle>
-              <DialogDescription>Bagaimana pengalaman pemotretan Anda bersama AideaCreative?</DialogDescription>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
-                <FormField control={form.control} name="namaTampil" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nama Anda</FormLabel>
-                    <FormControl><Input placeholder="John Doe" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="rating" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Penilaian</FormLabel>
-                    <div className="flex gap-2">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <button key={star} type="button" onClick={() => field.onChange(star)} className="focus:outline-none">
-                          <Star size={28} fill={star <= field.value ? "currentColor" : "none"}
-                            className={star <= field.value ? "text-amber-400" : "text-muted-foreground"} />
-                        </button>
-                      ))}
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="komentar" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Ulasan</FormLabel>
-                    <FormControl>
-                      <Textarea placeholder="Ceritakan pengalaman Anda..." className="resize-none" rows={4} {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <Button type="submit" className="w-full mt-4" disabled={createTestimoni.isPending}>
-                  {createTestimoni.isPending && <Loader2 className="animate-spin mr-2" />}
-                  Kirim Ulasan
-                </Button>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+        {/* Write review — Drawer on mobile, Dialog on desktop */}
+        {isMobile ? (
+          <Drawer open={open} onOpenChange={setOpen}>
+            <DrawerContent>
+              <DrawerHeader className="text-left px-6 pt-2 pb-0">
+                <DrawerTitle className="font-serif">Tulis Ulasan</DrawerTitle>
+                <DrawerDescription>Bagaimana pengalaman pemotretan Anda bersama AideaCreative?</DrawerDescription>
+              </DrawerHeader>
+              <div className="px-6 pb-8 overflow-y-auto">
+                {reviewFormContent}
+              </div>
+            </DrawerContent>
+          </Drawer>
+        ) : (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle className="font-serif">Tulis Ulasan</DialogTitle>
+                <DialogDescription>Bagaimana pengalaman pemotretan Anda bersama AideaCreative?</DialogDescription>
+              </DialogHeader>
+              {reviewFormContent}
+            </DialogContent>
+          </Dialog>
+        )}
 
         {/* Stats modal */}
         <Dialog open={statsOpen} onOpenChange={setStatsOpen}>
