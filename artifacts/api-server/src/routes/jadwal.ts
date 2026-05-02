@@ -14,24 +14,27 @@ const router = Router();
 
 type DayRule = {
   isBuka: boolean;
-  jamBuka: string;   // "HH:MM"
-  jamTutup: string;  // "HH:MM"
-  slotMenit: number; // duration of each slot in minutes
+  jamBuka: string;
+  jamTutup: string;
+  slotMenit: number;
 };
 
 type WeeklyRules = Record<string, DayRule>;
 
+type BlacklistEntry = { tanggal: string; alasan: string };
+
 const DEFAULT_RULES: WeeklyRules = {
-  "0": { isBuka: true, jamBuka: "09:00", jamTutup: "20:00", slotMenit: 120 }, // Minggu
-  "1": { isBuka: true, jamBuka: "09:00", jamTutup: "17:00", slotMenit: 120 }, // Senin
+  "0": { isBuka: true, jamBuka: "09:00", jamTutup: "20:00", slotMenit: 120 },
+  "1": { isBuka: true, jamBuka: "09:00", jamTutup: "17:00", slotMenit: 120 },
   "2": { isBuka: true, jamBuka: "09:00", jamTutup: "17:00", slotMenit: 120 },
   "3": { isBuka: true, jamBuka: "09:00", jamTutup: "17:00", slotMenit: 120 },
-  "4": { isBuka: true, jamBuka: "09:00", jamTutup: "17:00", slotMenit: 120 }, // Kamis
-  "5": { isBuka: true, jamBuka: "09:00", jamTutup: "20:00", slotMenit: 120 }, // Jumat
-  "6": { isBuka: true, jamBuka: "09:00", jamTutup: "20:00", slotMenit: 120 }, // Sabtu
+  "4": { isBuka: true, jamBuka: "09:00", jamTutup: "17:00", slotMenit: 120 },
+  "5": { isBuka: true, jamBuka: "09:00", jamTutup: "20:00", slotMenit: 120 },
+  "6": { isBuka: true, jamBuka: "09:00", jamTutup: "20:00", slotMenit: 120 },
 };
 
 const ATURAN_KEY = "jadwalAturan";
+const BLACKLIST_KEY = "jadwalBlacklist";
 
 function normalizeRules(raw: any): WeeklyRules {
   const out: WeeklyRules = { ...DEFAULT_RULES };
@@ -58,6 +61,13 @@ async function loadRules(): Promise<WeeklyRules> {
   return normalizeRules(row?.value);
 }
 
+async function loadBlacklist(): Promise<BlacklistEntry[]> {
+  const [row] = await db.select().from(pengaturanSitusTable).where(eq(pengaturanSitusTable.key, BLACKLIST_KEY));
+  if (!row?.value) return [];
+  const val = row.value as any;
+  return Array.isArray(val?.dates) ? val.dates : [];
+}
+
 function timeToMinutes(t: string): number {
   const [h, m] = t.split(":").map((n) => Number(n));
   return (h || 0) * 60 + (m || 0);
@@ -78,45 +88,52 @@ function buildSlots(
   if (end <= start) return [];
   const slots: { jamMulai: string; jamSelesai: string }[] = [];
   for (let t = start; t + rule.slotMenit <= end; t += rule.slotMenit) {
-    // If afterMinutes is set (today's slots), skip slots that have already started
     if (afterMinutes !== undefined && t < afterMinutes) continue;
     slots.push({ jamMulai: minutesToTime(t), jamSelesai: minutesToTime(t + rule.slotMenit) });
   }
   return slots;
 }
 
-/** Returns current time-of-day in minutes, using WIB (GMT+7). */
 function nowWIBMinutes(): number {
   const nowUTC = new Date();
   const nowWIB = new Date(nowUTC.getTime() + 7 * 60 * 60 * 1000);
   return nowWIB.getUTCHours() * 60 + nowWIB.getUTCMinutes();
 }
 
-/** Returns today's date string "YYYY-MM-DD" in WIB (GMT+7). */
 function todayWIB(): Date {
   const nowUTC = new Date();
   const wibMs = nowUTC.getTime() + 7 * 60 * 60 * 1000;
   const d = new Date(wibMs);
-  // Construct a midnight-UTC Date that represents WIB today
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
 
 function dayOfWeek(tanggal: string): number {
-  // tanggal "YYYY-MM-DD" interpreted as local-noon to avoid TZ drift.
   const d = new Date(`${tanggal}T12:00:00`);
   return d.getDay();
 }
 
+const HARI_LABEL = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+
 // ---------- Public read endpoints ----------
 
-const HARI_LABEL = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+router.get("/jadwal/aturan", async (_req, res) => {
+  const rules = await loadRules();
+  res.json({ rules, hariLabel: HARI_LABEL });
+});
+
+router.get("/jadwal/blackout", async (_req, res) => {
+  try {
+    const dates = await loadBlacklist();
+    res.json(dates);
+  } catch (err) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 router.get("/jadwal", async (req, res) => {
   try {
     const tanggal = typeof req.query.tanggal === "string" ? req.query.tanggal : null;
 
-    // Backward-compat: when ?all=true is passed (legacy admin), still return any
-    // rows from the old per-date table so existing data isn't lost.
     if (req.query.all === "true") {
       const rows = await db.select().from(jadwalTersediaTable).orderBy(jadwalTersediaTable.tanggal);
       res.json(rows.map((r) => ({
@@ -130,11 +147,10 @@ router.get("/jadwal", async (req, res) => {
       return;
     }
 
-    const rules = await loadRules();
+    const [rules, blacklist] = await Promise.all([loadRules(), loadBlacklist()]);
+    const blacklistSet = new Set(blacklist.map((b) => b.tanggal));
 
     if (!tanggal || !/^\d{4}-\d{2}-\d{2}$/.test(tanggal)) {
-      // No date filter — return next 30 days of derived availability so
-      // legacy callers (booking page useListJadwal hook) still work.
       const out: any[] = [];
       const today = todayWIB();
       const currentMinutes = nowWIBMinutes();
@@ -145,9 +161,9 @@ router.get("/jadwal", async (req, res) => {
         const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
         const dd = String(d.getUTCDate()).padStart(2, "0");
         const tgl = `${yyyy}-${mm}-${dd}`;
+        if (blacklistSet.has(tgl)) continue;
         const rule = rules[String(d.getUTCDay())];
         if (!rule?.isBuka) continue;
-        // For today (i === 0), filter out slots that have already started
         const afterMin = i === 0 ? currentMinutes : undefined;
         for (const slot of buildSlots(rule, afterMin)) {
           out.push({
@@ -164,13 +180,17 @@ router.get("/jadwal", async (req, res) => {
       return;
     }
 
+    if (blacklistSet.has(tanggal)) {
+      res.json([]);
+      return;
+    }
+
     const dow = dayOfWeek(tanggal);
     const rule = rules[String(dow)];
     if (!rule?.isBuka) {
       res.json([]);
       return;
     }
-    // If the requested date is today (WIB), filter out past slots
     const todayStr = (() => {
       const d = todayWIB();
       return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
@@ -191,14 +211,7 @@ router.get("/jadwal", async (req, res) => {
   }
 });
 
-// New: rules CRUD for the simplified admin UI.
-router.get("/jadwal/aturan", async (_req, res) => {
-  const rules = await loadRules();
-  res.json({
-    rules,
-    hariLabel: HARI_LABEL,
-  });
-});
+// ---------- Admin write endpoints ----------
 
 router.put("/admin/jadwal/aturan", requireAdmin, async (req, res) => {
   try {
@@ -218,8 +231,27 @@ router.put("/admin/jadwal/aturan", requireAdmin, async (req, res) => {
   }
 });
 
-// ---------- Legacy per-date endpoints (kept so admin bookings page that
-// references existing jadwal rows still works) ----------
+router.put("/admin/jadwal/blackout", requireAdmin, async (req, res) => {
+  try {
+    const dates = Array.isArray(req.body?.dates) ? req.body.dates : [];
+    const validated: BlacklistEntry[] = dates
+      .filter((d: any) => d?.tanggal && /^\d{4}-\d{2}-\d{2}$/.test(d.tanggal))
+      .map((d: any) => ({ tanggal: d.tanggal, alasan: typeof d.alasan === "string" ? d.alasan : "" }));
+    await db
+      .insert(pengaturanSitusTable)
+      .values({ key: BLACKLIST_KEY, value: { dates: validated } })
+      .onConflictDoUpdate({
+        target: pengaturanSitusTable.key,
+        set: { value: { dates: validated }, updatedAt: sql`now()` },
+      });
+    res.json(validated);
+  } catch (err) {
+    req.log.error({ err }, "Failed to save jadwal blackout");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ---------- Legacy per-date endpoints ----------
 
 const formatLegacy = (r: typeof jadwalTersediaTable.$inferSelect) => ({
   id: r.id,

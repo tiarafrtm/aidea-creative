@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useListPaket, useCreateBooking } from "@workspace/api-client-react";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
-import { CalendarIcon, Loader2, CheckCircle2, Clock } from "lucide-react";
+import { CalendarIcon, Loader2, CheckCircle2, Clock, PartyPopper, Copy, MessageCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -22,6 +21,15 @@ import { useAuth } from "@/lib/auth";
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 type JadwalSlot = { tanggal: string; jamMulai: string; jamSelesai: string };
+type DayRule = { isBuka: boolean; jamBuka: string; jamTutup: string; slotMenit: number };
+type BlacklistEntry = { tanggal: string; alasan: string };
+type BookedResult = {
+  kodeBooking: string;
+  namaPaket: string;
+  tanggalSesi: Date;
+  jamSesi: string;
+  totalHarga: number;
+};
 
 const bookingSchema = z.object({
   namaPemesan: z.string().min(2, "Nama lengkap harus diisi"),
@@ -35,7 +43,6 @@ const bookingSchema = z.object({
 });
 
 export default function Booking() {
-  const [_, setLocation] = useLocation();
   const { toast } = useToast();
   const { user, profile } = useAuth();
 
@@ -44,6 +51,33 @@ export default function Booking() {
 
   const [jamTersedia, setJamTersedia] = useState<string[]>([]);
   const [loadingJam, setLoadingJam] = useState(false);
+  const [bookedResult, setBookedResult] = useState<BookedResult | null>(null);
+  const [closedDays, setClosedDays] = useState<Set<number>>(new Set());
+  const [blacklistDates, setBlacklistDates] = useState<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/jadwal/aturan`)
+      .then((r) => r.json())
+      .then((data) => {
+        const closed = new Set<number>();
+        if (data.rules) {
+          Object.entries(data.rules).forEach(([day, rule]: [string, any]) => {
+            if (!rule.isBuka) closed.add(Number(day));
+          });
+        }
+        setClosedDays(closed);
+      })
+      .catch(() => {});
+
+    fetch(`${API_BASE}/api/jadwal/blackout`)
+      .then((r) => r.json())
+      .then((data: BlacklistEntry[]) => {
+        if (Array.isArray(data)) {
+          setBlacklistDates(new Map(data.map((d) => [d.tanggal, d.alasan])));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const form = useForm<z.infer<typeof bookingSchema>>({
     resolver: zodResolver(bookingSchema),
@@ -73,7 +107,6 @@ export default function Booking() {
 
   const selectedTanggal = form.watch("tanggalSesi");
 
-  // Fetch available time slots whenever the selected date changes
   useEffect(() => {
     if (!selectedTanggal) {
       setJamTersedia([]);
@@ -109,11 +142,16 @@ export default function Booking() {
       },
       {
         onSuccess: (data) => {
-          toast({
-            title: "Booking Berhasil!",
-            description: `Terima kasih! Kode booking Anda: ${data.kodeBooking}. Kami akan segera menghubungi Anda.`,
+          const paket = Array.isArray(paketList)
+            ? paketList.find((p) => p.id === values.paketId)
+            : undefined;
+          setBookedResult({
+            kodeBooking: data.kodeBooking,
+            namaPaket: (data as any).namaPaket ?? paket?.namaPaket ?? "—",
+            tanggalSesi: values.tanggalSesi,
+            jamSesi: values.jamSesi,
+            totalHarga: Number((data as any).totalHarga ?? paket?.harga ?? 0),
           });
-          setLocation("/");
         },
         onError: () => {
           toast({
@@ -133,6 +171,95 @@ export default function Booking() {
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
+  const isDateDisabled = (date: Date) => {
+    if (date < today) return true;
+    if (closedDays.has(date.getDay())) return true;
+    const dateStr = format(date, "yyyy-MM-dd");
+    if (blacklistDates.has(dateStr)) return true;
+    return false;
+  };
+
+  const selectedTanggalStr = selectedTanggal ? format(selectedTanggal, "yyyy-MM-dd") : null;
+  const isDayClosed = selectedTanggal ? closedDays.has(selectedTanggal.getDay()) : false;
+  const isDateBlocked = selectedTanggalStr ? blacklistDates.has(selectedTanggalStr) : false;
+  const blockedAlasan = selectedTanggalStr ? blacklistDates.get(selectedTanggalStr) : undefined;
+
+  if (bookedResult) {
+    const waNumber = "6285279232879";
+    const waText = encodeURIComponent(
+      `Halo AideaCreative! Saya baru saja melakukan booking.\nKode: *${bookedResult.kodeBooking}*\nPaket: ${bookedResult.namaPaket}\nTanggal: ${format(bookedResult.tanggalSesi, "EEEE, dd MMMM yyyy", { locale: idLocale })}\nJam: ${bookedResult.jamSesi}\n\nMohon konfirmasinya, terima kasih.`
+    );
+
+    return (
+      <div className="container mx-auto px-4 py-16 max-w-2xl min-h-screen flex items-center justify-center">
+        <Card className="w-full border-border shadow-lg text-center">
+          <div className="bg-emerald-500/10 p-8 border-b border-border flex flex-col items-center gap-3">
+            <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center">
+              <PartyPopper className="h-8 w-8 text-emerald-600" />
+            </div>
+            <CardTitle className="text-2xl font-serif font-bold text-emerald-700">Booking Berhasil!</CardTitle>
+            <CardDescription className="text-base">
+              Terima kasih! Admin kami akan menghubungi Anda dalam 1×24 jam untuk konfirmasi.
+            </CardDescription>
+          </div>
+          <CardContent className="p-8 space-y-6">
+            <div className="bg-muted rounded-xl p-6 space-y-1">
+              <div className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Kode Booking Anda</div>
+              <div className="text-3xl font-mono font-bold tracking-widest text-primary">{bookedResult.kodeBooking}</div>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(bookedResult.kodeBooking);
+                  toast({ title: "Disalin!", description: "Kode booking berhasil disalin." });
+                }}
+                className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition"
+              >
+                <Copy className="h-3 w-3" /> Salin kode
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 text-sm text-left">
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Paket</div>
+                <div className="font-semibold">{bookedResult.namaPaket}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Total</div>
+                <div className="font-semibold">Rp {bookedResult.totalHarga.toLocaleString("id-ID")}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Tanggal Sesi</div>
+                <div className="font-semibold">
+                  {format(bookedResult.tanggalSesi, "EEEE, dd MMM yyyy", { locale: idLocale })}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Jam Sesi</div>
+                <div className="font-semibold">{bookedResult.jamSesi}</div>
+              </div>
+            </div>
+
+            <p className="text-sm text-muted-foreground">
+              Simpan kode booking di atas sebagai referensi. Kami akan menghubungi Anda via WhatsApp untuk konfirmasi jadwal dan informasi pembayaran.
+            </p>
+
+            <a
+              href={`https://wa.me/${waNumber}?text=${waText}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button className="w-full bg-emerald-600 hover:bg-emerald-700 gap-2">
+                <MessageCircle className="h-4 w-4" /> Konfirmasi via WhatsApp
+              </Button>
+            </a>
+            <Button variant="outline" className="w-full" onClick={() => window.location.href = "/"}>
+              Kembali ke Beranda
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-16 max-w-4xl min-h-screen flex items-center justify-center">
@@ -291,7 +418,7 @@ export default function Booking() {
                                 field.onChange(date);
                                 form.setValue("jamSesi", "");
                               }}
-                              disabled={(date) => date < today}
+                              disabled={isDateDisabled}
                               className="min-w-[300px]"
                               initialFocus
                             />
@@ -311,6 +438,15 @@ export default function Booking() {
                         {loadingJam ? (
                           <div className="flex items-center gap-2 h-10 text-sm text-muted-foreground">
                             <Loader2 className="h-4 w-4 animate-spin" /> Memuat jadwal...
+                          </div>
+                        ) : isDayClosed || isDateBlocked ? (
+                          <div className="flex items-start gap-2 p-3 rounded-lg bg-muted text-sm text-muted-foreground">
+                            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-500" />
+                            <div>
+                              Studio tutup pada tanggal ini.
+                              {blockedAlasan && <span className="block text-xs mt-0.5">{blockedAlasan}</span>}
+                              <span className="block text-xs mt-0.5">Silakan pilih tanggal lain.</span>
+                            </div>
                           </div>
                         ) : jamTersedia.length > 0 ? (
                           <Select onValueChange={field.onChange} value={field.value}>
@@ -334,9 +470,10 @@ export default function Booking() {
                             <Input
                               placeholder={
                                 selectedTanggal
-                                  ? "Tidak ada jadwal tersedia — ketik jam manual"
+                                  ? "Belum ada jadwal tersedia — hubungi kami"
                                   : "Pilih tanggal terlebih dahulu"
                               }
+                              readOnly={!!selectedTanggal}
                               {...field}
                             />
                           </FormControl>

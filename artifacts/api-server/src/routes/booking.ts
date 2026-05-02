@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { bookingTable, paketLayananTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
-import { attachAuth } from "../middlewares/auth";
+import { attachAuth, requireAdmin } from "../middlewares/auth";
 
 const router = Router();
 
@@ -13,11 +13,15 @@ function generateKodeBooking(): string {
   return `IDC-${tgl}-${rand}`;
 }
 
-const formatBooking = (r: typeof bookingTable.$inferSelect) => ({
+const formatBooking = (
+  r: typeof bookingTable.$inferSelect,
+  namaPaket?: string | null,
+) => ({
   id: r.id,
   kodeBooking: r.kodeBooking,
   pelangganId: r.pelangganId,
   paketId: r.paketId,
+  namaPaket: namaPaket ?? null,
   namaPemesan: r.namaPemesan,
   email: r.email,
   telepon: r.telepon,
@@ -34,10 +38,11 @@ const formatBooking = (r: typeof bookingTable.$inferSelect) => ({
 router.get("/booking", async (req, res) => {
   try {
     const rows = await db
-      .select()
+      .select({ booking: bookingTable, namaPaket: paketLayananTable.namaPaket })
       .from(bookingTable)
+      .leftJoin(paketLayananTable, eq(bookingTable.paketId, paketLayananTable.id))
       .orderBy(desc(bookingTable.createdAt));
-    res.json(rows.map(formatBooking));
+    res.json(rows.map((r) => formatBooking(r.booking, r.namaPaket)));
   } catch (err) {
     req.log.error({ err }, "Failed to list booking");
     res.status(500).json({ error: "Internal server error" });
@@ -71,7 +76,7 @@ router.post("/booking", attachAuth, async (req, res) => {
         statusPembayaran: "belum_bayar",
       })
       .returning();
-    res.status(201).json(formatBooking(row));
+    res.status(201).json(formatBooking(row, paket.namaPaket));
   } catch (err) {
     req.log.error({ err }, "Failed to create booking");
     res.status(400).json({ error: "Bad request" });
@@ -80,19 +85,21 @@ router.post("/booking", attachAuth, async (req, res) => {
 
 router.get("/booking/:id", async (req, res) => {
   try {
-    const [row] = await db
-      .select()
+    const rows = await db
+      .select({ booking: bookingTable, namaPaket: paketLayananTable.namaPaket })
       .from(bookingTable)
+      .leftJoin(paketLayananTable, eq(bookingTable.paketId, paketLayananTable.id))
       .where(eq(bookingTable.id, req.params.id));
-    if (!row) return res.status(404).json({ error: "Not found" });
-    res.json(formatBooking(row));
+    if (!rows.length) return res.status(404).json({ error: "Not found" });
+    const { booking, namaPaket } = rows[0];
+    res.json(formatBooking(booking, namaPaket));
   } catch (err) {
     req.log.error({ err }, "Failed to get booking");
     res.status(404).json({ error: "Not found" });
   }
 });
 
-router.put("/booking/:id", async (req, res) => {
+router.put("/booking/:id", requireAdmin, async (req, res) => {
   try {
     const body = req.body;
     const updateData: Record<string, unknown> = {};
@@ -105,7 +112,13 @@ router.put("/booking/:id", async (req, res) => {
       .where(eq(bookingTable.id, req.params.id))
       .returning();
     if (!row) return res.status(404).json({ error: "Not found" });
-    res.json(formatBooking(row));
+
+    const [paketRow] = await db
+      .select({ namaPaket: paketLayananTable.namaPaket })
+      .from(paketLayananTable)
+      .where(eq(paketLayananTable.id, row.paketId));
+
+    res.json(formatBooking(row, paketRow?.namaPaket));
   } catch (err) {
     req.log.error({ err }, "Failed to update booking status");
     res.status(400).json({ error: "Bad request" });

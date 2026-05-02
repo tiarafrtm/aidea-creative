@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Save, Loader2, Clock, Calendar as CalendarIcon } from "lucide-react";
+import { Save, Loader2, Clock, Calendar as CalendarIcon, Plus, Trash2, BanIcon } from "lucide-react";
 import { AdminLayout } from "@/components/admin-layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,11 @@ type DayRule = {
 };
 
 type Rules = Record<string, DayRule>;
+
+type BlacklistEntry = {
+  tanggal: string;
+  alasan: string;
+};
 
 type AturanResponse = {
   rules: Rules;
@@ -51,6 +56,18 @@ function previewSlots(rule: DayRule): string[] {
   return out;
 }
 
+function formatDisplayDate(tgl: string): string {
+  try {
+    const [y, m, d] = tgl.split("-");
+    const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agt", "Sep", "Okt", "Nov", "Des"];
+    const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+    const date = new Date(`${tgl}T12:00:00`);
+    return `${days[date.getDay()]}, ${d} ${months[Number(m) - 1]} ${y}`;
+  } catch {
+    return tgl;
+  }
+}
+
 const PRESETS: { label: string; description: string; build: () => Rules }[] = [
   {
     label: "Sen–Kam reguler · Jum–Min extended",
@@ -59,12 +76,7 @@ const PRESETS: { label: string; description: string; build: () => Rules }[] = [
       const r: Rules = {} as any;
       for (let i = 0; i < 7; i++) {
         const weekend = i === 0 || i === 5 || i === 6;
-        r[String(i)] = {
-          isBuka: true,
-          jamBuka: "09:00",
-          jamTutup: weekend ? "20:00" : "17:00",
-          slotMenit: 120,
-        };
+        r[String(i)] = { isBuka: true, jamBuka: "09:00", jamTutup: weekend ? "20:00" : "17:00", slotMenit: 120 };
       }
       return r;
     },
@@ -75,12 +87,7 @@ const PRESETS: { label: string; description: string; build: () => Rules }[] = [
     build: () => {
       const r: Rules = {} as any;
       for (let i = 0; i < 7; i++) {
-        r[String(i)] = {
-          isBuka: i !== 0,
-          jamBuka: "09:00",
-          jamTutup: "18:00",
-          slotMenit: 90,
-        };
+        r[String(i)] = { isBuka: i !== 0, jamBuka: "09:00", jamTutup: "18:00", slotMenit: 90 };
       }
       return r;
     },
@@ -91,12 +98,7 @@ const PRESETS: { label: string; description: string; build: () => Rules }[] = [
     build: () => {
       const r: Rules = {} as any;
       for (let i = 0; i < 7; i++) {
-        r[String(i)] = {
-          isBuka: i === 0 || i === 5 || i === 6,
-          jamBuka: "09:00",
-          jamTutup: "20:00",
-          slotMenit: 120,
-        };
+        r[String(i)] = { isBuka: i === 0 || i === 5 || i === 6, jamBuka: "09:00", jamTutup: "20:00", slotMenit: 120 };
       }
       return r;
     },
@@ -107,16 +109,22 @@ export default function AdminJadwal() {
   const { toast } = useToast();
   const [labels, setLabels] = useState<string[]>(FALLBACK_LABELS);
   const [rules, setRules] = useState<Rules | null>(null);
+  const [blacklist, setBlacklist] = useState<BlacklistEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [newTanggal, setNewTanggal] = useState("");
+  const [newAlasan, setNewAlasan] = useState("");
 
   const load = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/jadwal/aturan`);
-      const data: AturanResponse = await res.json();
-      setRules(data.rules ?? null);
-      if (Array.isArray(data.hariLabel) && data.hariLabel.length === 7) setLabels(data.hariLabel);
+      const [aturanData, blacklistData] = await Promise.all([
+        fetch(`${API_BASE}/api/jadwal/aturan`).then((r) => r.json()) as Promise<AturanResponse>,
+        fetch(`${API_BASE}/api/jadwal/blackout`).then((r) => r.json()) as Promise<BlacklistEntry[]>,
+      ]);
+      setRules(aturanData.rules ?? null);
+      if (Array.isArray(aturanData.hariLabel) && aturanData.hariLabel.length === 7) setLabels(aturanData.hariLabel);
+      setBlacklist(Array.isArray(blacklistData) ? blacklistData : []);
     } catch (err: any) {
       toast({ title: "Gagal memuat aturan", description: err?.message, variant: "destructive" });
     }
@@ -140,14 +148,38 @@ export default function AdminJadwal() {
     toast({ title: "Preset diterapkan", description: "Klik 'Simpan' untuk mengaktifkan." });
   };
 
+  const addBlacklist = () => {
+    if (!newTanggal || !/^\d{4}-\d{2}-\d{2}$/.test(newTanggal)) {
+      toast({ title: "Tanggal tidak valid", variant: "destructive" });
+      return;
+    }
+    if (blacklist.some((b) => b.tanggal === newTanggal)) {
+      toast({ title: "Tanggal sudah ada dalam daftar", variant: "destructive" });
+      return;
+    }
+    setBlacklist((prev) => [...prev, { tanggal: newTanggal, alasan: newAlasan }].sort((a, b) => a.tanggal.localeCompare(b.tanggal)));
+    setNewTanggal("");
+    setNewAlasan("");
+  };
+
+  const removeBlacklist = (tanggal: string) => {
+    setBlacklist((prev) => prev.filter((b) => b.tanggal !== tanggal));
+  };
+
   const save = async () => {
     if (!rules) return;
     setSaving(true);
     try {
-      await adminFetch("/admin/jadwal/aturan", {
-        method: "PUT",
-        body: JSON.stringify({ rules }),
-      });
+      await Promise.all([
+        adminFetch("/admin/jadwal/aturan", {
+          method: "PUT",
+          body: JSON.stringify({ rules }),
+        }),
+        adminFetch("/admin/jadwal/blackout", {
+          method: "PUT",
+          body: JSON.stringify({ dates: blacklist }),
+        }),
+      ]);
       toast({ title: "Jadwal disimpan", description: "Slot pelanggan langsung mengikuti aturan baru." });
     } catch (err: any) {
       toast({ title: "Gagal menyimpan", description: err?.message, variant: "destructive" });
@@ -163,12 +195,15 @@ export default function AdminJadwal() {
     );
   }
 
+  const today = new Date().toISOString().slice(0, 10);
+
   return (
     <AdminLayout
       title="Jadwal Studio"
       subtitle="Atur jam buka per hari dalam seminggu — slot booking pelanggan otomatis menyesuaikan."
     >
       <div className="space-y-6 max-w-4xl">
+        {/* Preset */}
         <Card className="border-dashed">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -191,6 +226,7 @@ export default function AdminJadwal() {
           </CardContent>
         </Card>
 
+        {/* Aturan per hari */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Aturan per Hari</CardTitle>
@@ -279,6 +315,79 @@ export default function AdminJadwal() {
                 </div>
               );
             })}
+          </CardContent>
+        </Card>
+
+        {/* Tanggal Libur / Blokir */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <BanIcon className="h-4 w-4 text-destructive" /> Tanggal Libur & Blokir
+            </CardTitle>
+            <CardDescription>
+              Blokir tanggal tertentu — libur nasional, maintenance studio, atau tanggal sudah penuh.
+              Pelanggan tidak dapat memilih tanggal ini saat booking.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex-1">
+                <Label className="text-xs mb-1 block">Tanggal</Label>
+                <Input
+                  type="date"
+                  value={newTanggal}
+                  min={today}
+                  onChange={(e) => setNewTanggal(e.target.value)}
+                />
+              </div>
+              <div className="flex-[2]">
+                <Label className="text-xs mb-1 block">Alasan (opsional)</Label>
+                <Input
+                  placeholder="Contoh: Libur Idul Fitri, Studio maintenance..."
+                  value={newAlasan}
+                  onChange={(e) => setNewAlasan(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addBlacklist()}
+                />
+              </div>
+              <div className="flex items-end">
+                <Button onClick={addBlacklist} variant="outline" className="gap-1">
+                  <Plus className="h-4 w-4" /> Tambah
+                </Button>
+              </div>
+            </div>
+
+            {blacklist.length === 0 ? (
+              <div className="text-sm text-muted-foreground text-center py-6 border border-dashed rounded-lg">
+                Belum ada tanggal yang diblokir.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {blacklist.map((entry) => (
+                  <div
+                    key={entry.tanggal}
+                    className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/20"
+                  >
+                    <div className="flex items-center gap-3">
+                      <BanIcon className="h-4 w-4 text-destructive shrink-0" />
+                      <div>
+                        <div className="text-sm font-medium">{formatDisplayDate(entry.tanggal)}</div>
+                        {entry.alasan && (
+                          <div className="text-xs text-muted-foreground">{entry.alasan}</div>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      onClick={() => removeBlacklist(entry.tanggal)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
