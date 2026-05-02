@@ -1,16 +1,30 @@
-import { useEffect, useState } from "react";
-import { Camera, Loader2, LogOut, Save, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  Camera,
+  CalendarCheck,
+  ClipboardList,
+  Loader2,
+  LogOut,
+  MessageSquare,
+  Save,
+  Star,
+  Upload,
+  User,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
+import { format } from "date-fns";
+import { id as idLocale } from "date-fns/locale";
 
 type BookingRow = {
   id: string;
@@ -19,6 +33,8 @@ type BookingRow = {
   jam_sesi: string;
   status: string;
   total_harga: number;
+  nama_pemesan?: string;
+  catatan_pelanggan?: string;
 };
 
 type PesananRow = {
@@ -37,19 +53,62 @@ type TestimoniRow = {
   created_at: string;
 };
 
+const STATUS_BOOKING: Record<string, { label: string; className: string }> = {
+  menunggu:    { label: "Menunggu",    className: "bg-amber-100 text-amber-800 border border-amber-200" },
+  dikonfirmasi:{ label: "Dikonfirmasi",className: "bg-blue-100 text-blue-800 border border-blue-200" },
+  selesai:     { label: "Selesai",     className: "bg-emerald-100 text-emerald-800 border border-emerald-200" },
+  dibatalkan:  { label: "Dibatalkan",  className: "bg-red-100 text-red-800 border border-red-200" },
+};
+
+const STATUS_PESANAN: Record<string, { label: string; className: string }> = {
+  pending:    { label: "Menunggu",   className: "bg-amber-100 text-amber-800 border border-amber-200" },
+  processing: { label: "Diproses",   className: "bg-blue-100 text-blue-800 border border-blue-200" },
+  shipped:    { label: "Dikirim",    className: "bg-violet-100 text-violet-800 border border-violet-200" },
+  completed:  { label: "Selesai",    className: "bg-emerald-100 text-emerald-800 border border-emerald-200" },
+  cancelled:  { label: "Dibatalkan", className: "bg-red-100 text-red-800 border border-red-200" },
+};
+
+function StatusBadge({ status, map }: { status: string; map: Record<string, { label: string; className: string }> }) {
+  const s = map[status];
+  if (!s) return <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground border">{status}</span>;
+  return <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${s.className}`}>{s.label}</span>;
+}
+
+function EmptyState({ icon: Icon, text }: { icon: React.ElementType; text: string }) {
+  return (
+    <div className="py-16 flex flex-col items-center gap-3 text-muted-foreground">
+      <Icon className="h-10 w-10 opacity-30" />
+      <p className="text-sm">{text}</p>
+    </div>
+  );
+}
+
+function formatTanggal(str: string) {
+  try {
+    return format(new Date(str + "T00:00:00"), "EEEE, dd MMMM yyyy", { locale: idLocale });
+  } catch {
+    return str;
+  }
+}
+
 export default function Profil() {
   const { user, profile, refreshProfile, signOut } = useAuth();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const { toast } = useToast();
+
   const [namaLengkap, setNamaLengkap] = useState("");
   const [noTelepon, setNoTelepon] = useState("");
   const [alamat, setAlamat] = useState("");
   const [fotoProfil, setFotoProfil] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+
   const [booking, setBooking] = useState<BookingRow[]>([]);
   const [pesanan, setPesanan] = useState<PesananRow[]>([]);
   const [testimoni, setTestimoni] = useState<TestimoniRow[]>([]);
+  const [dataLoading, setDataLoading] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!profile) return;
@@ -61,10 +120,11 @@ export default function Profil() {
 
   useEffect(() => {
     if (!supabase || !user) return;
+    setDataLoading(true);
     Promise.all([
       supabase
         .from("booking")
-        .select("id,kode_booking,tanggal_sesi,jam_sesi,status,total_harga")
+        .select("id,kode_booking,tanggal_sesi,jam_sesi,status,total_harga,nama_pemesan,catatan_pelanggan")
         .eq("pelanggan_id", user.id)
         .order("created_at", { ascending: false }),
       supabase
@@ -77,10 +137,11 @@ export default function Profil() {
         .select("id,rating,komentar,is_approved,created_at")
         .eq("pelanggan_id", user.id)
         .order("created_at", { ascending: false }),
-    ]).then(([bookingResult, pesananResult, testimoniResult]) => {
-      if (!bookingResult.error) setBooking((bookingResult.data ?? []) as BookingRow[]);
-      if (!pesananResult.error) setPesanan((pesananResult.data ?? []) as PesananRow[]);
-      if (!testimoniResult.error) setTestimoni((testimoniResult.data ?? []) as TestimoniRow[]);
+    ]).then(([b, p, t]) => {
+      if (!b.error) setBooking((b.data ?? []) as BookingRow[]);
+      if (!p.error) setPesanan((p.data ?? []) as PesananRow[]);
+      if (!t.error) setTestimoni((t.data ?? []) as TestimoniRow[]);
+      setDataLoading(false);
     });
   }, [user]);
 
@@ -99,11 +160,11 @@ export default function Profil() {
       .eq("id", user.id);
     setIsSaving(false);
     if (error) {
-      toast({ title: "Profil gagal disimpan", description: error.message, variant: "destructive" });
+      toast({ title: "Gagal menyimpan", description: error.message, variant: "destructive" });
       return;
     }
     await refreshProfile();
-    toast({ title: "Profil tersimpan", description: "Data profil Anda berhasil diperbarui." });
+    toast({ title: "Profil tersimpan", description: "Data profil berhasil diperbarui." });
   };
 
   const uploadAvatar = async (file: File) => {
@@ -121,181 +182,267 @@ export default function Profil() {
     if (uploadError) {
       setIsUploading(false);
       const msg = /not.found|bucket/i.test(uploadError.message)
-        ? "Bucket 'avatars' belum dibuat di Supabase Storage. Buat bucket public bernama 'avatars' di dashboard Supabase."
+        ? "Bucket 'avatars' belum dibuat di Supabase Storage."
         : uploadError.message;
       toast({ title: "Upload gagal", description: msg, variant: "destructive" });
       return;
     }
     const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-    const publicUrl = data.publicUrl;
-    setFotoProfil(publicUrl);
-
-    const { error: updateError } = await supabase
-      .from("profiles")
-      .update({ foto_profil: publicUrl, updated_at: new Date().toISOString() })
-      .eq("id", user.id);
+    setFotoProfil(data.publicUrl);
+    await supabase.from("profiles").update({ foto_profil: data.publicUrl, updated_at: new Date().toISOString() }).eq("id", user.id);
     setIsUploading(false);
-    if (updateError) {
-      toast({ title: "Foto terunggah, tapi gagal disimpan", description: updateError.message, variant: "destructive" });
-      return;
-    }
     await refreshProfile();
-    toast({ title: "Foto profil diperbarui", description: "Foto profil Anda berhasil disimpan." });
+    toast({ title: "Foto profil diperbarui" });
   };
 
   const initials = namaLengkap
     .split(" ")
-    .map((part) => part[0])
+    .map((p) => p[0])
     .join("")
     .slice(0, 2)
     .toUpperCase() || "AC";
 
+  const joinDate = user?.created_at
+    ? format(new Date(user.created_at), "MMMM yyyy", { locale: idLocale })
+    : null;
+
   return (
-    <div className="container mx-auto px-4 py-12 min-h-screen">
-      <div className="max-w-6xl mx-auto space-y-8">
+    <div className="min-h-screen bg-muted/30">
+      <div className="container mx-auto px-4 py-10 max-w-4xl space-y-6">
+
+        {/* ── Account header ── */}
         <Card className="border-border shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-3xl">Profil Saya</CardTitle>
-            <CardDescription>Kelola data akun, riwayat booking, pesanan produk, dan testimoni Anda.</CardDescription>
-            {user?.email && (
-              <p className="text-xs text-muted-foreground mt-2">Masuk sebagai <span className="font-medium text-foreground">{user.email}</span>{user.created_at ? <> · Bergabung sejak {new Date(user.created_at).toLocaleDateString("id-ID", { year: "numeric", month: "long" })}</> : null}{profile?.role === "admin" && <span className="ml-2 inline-flex items-center rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider">Admin</span>}</p>
-            )}
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8">
-            <div className="space-y-4">
-              <Avatar className="h-32 w-32 mx-auto border border-border">
+          <CardContent className="p-6 flex flex-col sm:flex-row sm:items-center gap-5">
+            <div className="relative shrink-0">
+              <Avatar className="h-20 w-20 border-2 border-border">
                 <AvatarImage src={fotoProfil} />
-                <AvatarFallback className="text-2xl">{initials}</AvatarFallback>
+                <AvatarFallback className="text-xl font-semibold">{initials}</AvatarFallback>
               </Avatar>
-              <Label className="block">
-                <span className="sr-only">Upload foto profil</span>
-                <Input type="file" accept="image/*" className="hidden" onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) uploadAvatar(file);
-                }} />
-                <Button type="button" variant="outline" className="w-full" disabled={isUploading} asChild>
-                  <span>{isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />} Upload Foto Profil</span>
-                </Button>
-              </Label>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow hover:bg-primary/90 disabled:opacity-50 transition"
+                title="Ganti foto profil"
+              >
+                {isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); }}
+              />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="space-y-2">
-                <Label htmlFor="namaLengkap">Nama Lengkap</Label>
-                <Input id="namaLengkap" value={namaLengkap} onChange={(event) => setNamaLengkap(event.target.value)} />
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                <h1 className="text-xl font-bold truncate">{namaLengkap || "—"}</h1>
+                {profile?.role === "admin" && (
+                  <span className="inline-flex items-center rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider">Admin</span>
+                )}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="noTelepon">No Telepon</Label>
-                <Input id="noTelepon" value={noTelepon} onChange={(event) => setNoTelepon(event.target.value)} />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="alamat">Alamat</Label>
-                <Textarea id="alamat" value={alamat} onChange={(event) => setAlamat(event.target.value)} />
-              </div>
-              <div className="md:col-span-2 flex justify-end">
-                <Button onClick={saveProfile} disabled={isSaving}>
-                  {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                  Simpan Profil
-                </Button>
+              <p className="text-sm text-muted-foreground truncate">{user?.email}</p>
+              {joinDate && <p className="text-xs text-muted-foreground mt-0.5">Bergabung sejak {joinDate}</p>}
+            </div>
+            <div className="flex sm:flex-col items-center sm:items-end gap-3 sm:gap-2 shrink-0">
+              <div className="flex gap-4 text-center">
+                <div>
+                  <p className="text-lg font-bold leading-none">{booking.length}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Booking</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold leading-none">{pesanan.length}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Pesanan</p>
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
+        {/* ── Main tabs ── */}
         <Tabs defaultValue="booking" className="w-full">
-          <TabsList className="mb-4 flex-wrap h-auto">
-            <TabsTrigger value="booking">Riwayat Booking</TabsTrigger>
-            <TabsTrigger value="pesanan">Pesanan Produk</TabsTrigger>
-            <TabsTrigger value="testimoni">Testimoni Saya</TabsTrigger>
+          <TabsList className="w-full grid grid-cols-4 h-auto">
+            <TabsTrigger value="profil" className="gap-1.5 py-2.5 text-xs sm:text-sm">
+              <User className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Profil</span>
+              <span className="sm:hidden">Profil</span>
+            </TabsTrigger>
+            <TabsTrigger value="booking" className="gap-1.5 py-2.5 text-xs sm:text-sm">
+              <CalendarCheck className="h-3.5 w-3.5" />
+              <span>Booking</span>
+              {booking.filter(b => b.status === "menunggu" || b.status === "dikonfirmasi").length > 0 && (
+                <span className="ml-0.5 min-w-[18px] h-[18px] rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+                  {booking.filter(b => b.status === "menunggu" || b.status === "dikonfirmasi").length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="pesanan" className="gap-1.5 py-2.5 text-xs sm:text-sm">
+              <ClipboardList className="h-3.5 w-3.5" />
+              <span>Pesanan</span>
+            </TabsTrigger>
+            <TabsTrigger value="testimoni" className="gap-1.5 py-2.5 text-xs sm:text-sm">
+              <MessageSquare className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Testimoni</span>
+              <span className="sm:hidden">Review</span>
+            </TabsTrigger>
           </TabsList>
-          <TabsContent value="booking">
+
+          {/* ── Profil tab ── */}
+          <TabsContent value="profil" className="mt-4">
             <Card>
-              <CardContent className="p-0 divide-y divide-border">
-                {booking.length === 0 ? <EmptyState text="Belum ada booking." /> : booking.map((item) => (
-                  <HistoryRow key={item.id} title={item.kode_booking} subtitle={`${item.tanggal_sesi} · ${item.jam_sesi}`} status={item.status} amount={item.total_harga} />
-                ))}
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="pesanan">
-            <Card>
-              <CardContent className="p-0 divide-y divide-border">
-                {pesanan.length === 0 ? <EmptyState text="Belum ada pesanan produk." /> : pesanan.map((item) => (
-                  <HistoryRow key={item.id} title={item.kode_pesanan} subtitle={new Date(item.created_at).toLocaleDateString("id-ID")} status={item.status} amount={item.total_harga} />
-                ))}
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="testimoni">
-            <Card>
-              <CardContent className="p-0 divide-y divide-border">
-                {testimoni.length === 0 ? <EmptyState text="Belum ada testimoni." /> : testimoni.map((item) => (
-                  <div key={item.id} className="p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                    <div>
-                      <div className="font-medium">{item.rating}/5</div>
-                      <p className="text-sm text-muted-foreground">{item.komentar}</p>
-                    </div>
-                    <Badge variant={item.is_approved ? "default" : "outline"}>{item.is_approved ? "Disetujui" : "Menunggu Review"}</Badge>
+              <CardContent className="p-6 space-y-5">
+                <h2 className="font-semibold text-base">Data Diri</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-2">
+                    <Label htmlFor="namaLengkap">Nama Lengkap</Label>
+                    <Input id="namaLengkap" value={namaLengkap} onChange={(e) => setNamaLengkap(e.target.value)} />
                   </div>
-                ))}
+                  <div className="space-y-2">
+                    <Label htmlFor="noTelepon">No Telepon / WhatsApp</Label>
+                    <Input id="noTelepon" value={noTelepon} onChange={(e) => setNoTelepon(e.target.value)} placeholder="08xxxxxxxxxx" />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="alamat">Alamat</Label>
+                    <Textarea id="alamat" value={alamat} onChange={(e) => setAlamat(e.target.value)} className="resize-none" rows={3} />
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button onClick={saveProfile} disabled={isSaving}>
+                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    Simpan Perubahan
+                  </Button>
+                </div>
+
+                <Separator />
+
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-sm">Keluar dari Akun</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Sesi di perangkat ini akan diakhiri.</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      setIsSigningOut(true);
+                      try { await signOut(); } finally { setIsSigningOut(false); }
+                    }}
+                    disabled={isSigningOut}
+                    className="border-destructive/40 text-destructive hover:bg-destructive hover:text-destructive-foreground self-start sm:self-auto"
+                  >
+                    {isSigningOut ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />}
+                    Keluar
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ── Booking tab ── */}
+          <TabsContent value="booking" className="mt-4">
+            <Card>
+              <CardContent className="p-0">
+                {dataLoading ? (
+                  <div className="py-16 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+                ) : booking.length === 0 ? (
+                  <EmptyState icon={CalendarCheck} text="Belum ada booking. Yuk buat booking pertamamu!" />
+                ) : (
+                  <ul className="divide-y divide-border">
+                    {booking.map((item) => (
+                      <li key={item.id} className="p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div className="space-y-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-sm font-mono">{item.kode_booking}</span>
+                            <StatusBadge status={item.status} map={STATUS_BOOKING} />
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {formatTanggal(item.tanggal_sesi)} · {item.jam_sesi}
+                          </p>
+                          {item.catatan_pelanggan && (
+                            <p className="text-xs text-muted-foreground truncate max-w-sm italic">"{item.catatan_pelanggan}"</p>
+                          )}
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="font-bold text-base">Rp {item.total_harga.toLocaleString("id-ID")}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ── Pesanan tab ── */}
+          <TabsContent value="pesanan" className="mt-4">
+            <Card>
+              <CardContent className="p-0">
+                {dataLoading ? (
+                  <div className="py-16 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+                ) : pesanan.length === 0 ? (
+                  <EmptyState icon={ClipboardList} text="Belum ada pesanan produk." />
+                ) : (
+                  <ul className="divide-y divide-border">
+                    {pesanan.map((item) => (
+                      <li key={item.id} className="p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-sm font-mono">{item.kode_pesanan}</span>
+                            <StatusBadge status={item.status} map={STATUS_PESANAN} />
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {format(new Date(item.created_at), "dd MMMM yyyy", { locale: idLocale })}
+                          </p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="font-bold text-base">Rp {item.total_harga.toLocaleString("id-ID")}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ── Testimoni tab ── */}
+          <TabsContent value="testimoni" className="mt-4">
+            <Card>
+              <CardContent className="p-0">
+                {dataLoading ? (
+                  <div className="py-16 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+                ) : testimoni.length === 0 ? (
+                  <EmptyState icon={MessageSquare} text="Belum ada testimoni yang dikirim." />
+                ) : (
+                  <ul className="divide-y divide-border">
+                    {testimoni.map((item) => (
+                      <li key={item.id} className="p-5 space-y-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-1">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`h-4 w-4 ${i < item.rating ? "text-amber-400 fill-amber-400" : "text-muted-foreground/30"}`}
+                              />
+                            ))}
+                            <span className="ml-1 text-sm font-medium">{item.rating}/5</span>
+                          </div>
+                          <Badge variant={item.is_approved ? "default" : "outline"} className="text-xs">
+                            {item.is_approved ? "Ditampilkan" : "Menunggu Review"}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground leading-relaxed">"{item.komentar}"</p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(item.created_at), "dd MMMM yyyy", { locale: idLocale })}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
-
-        <Card className="border-destructive/30 bg-destructive/5">
-          <CardContent className="p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <p className="font-semibold text-foreground">Keluar dari akun</p>
-              <p className="text-sm text-muted-foreground">Sesi Anda akan diakhiri di perangkat ini. Anda perlu login lagi untuk mengakses halaman pribadi.</p>
-            </div>
-            <Button
-              variant="outline"
-              onClick={async () => {
-                setIsSigningOut(true);
-                try { await signOut(); } finally { setIsSigningOut(false); }
-              }}
-              disabled={isSigningOut}
-              className="rounded-full border-destructive/40 text-destructive hover:bg-destructive hover:text-destructive-foreground self-start sm:self-auto"
-            >
-              {isSigningOut ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />}
-              Keluar dari Akun
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-function EmptyState({ text }: { text: string }) {
-  return (
-    <div className="p-8 text-center text-muted-foreground">
-      <Camera className="mx-auto mb-3 h-8 w-8 opacity-50" />
-      {text}
-    </div>
-  );
-}
-
-function HistoryRow({
-  title,
-  subtitle,
-  status,
-  amount,
-}: {
-  title: string;
-  subtitle: string;
-  status: string;
-  amount: number;
-}) {
-  return (
-    <div className="p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-      <div>
-        <div className="font-medium">{title}</div>
-        <div className="text-sm text-muted-foreground">{subtitle}</div>
-      </div>
-      <div className="flex items-center gap-3">
-        <Badge variant="outline">{status}</Badge>
-        <div className="font-semibold">Rp {amount.toLocaleString("id-ID")}</div>
       </div>
     </div>
   );
