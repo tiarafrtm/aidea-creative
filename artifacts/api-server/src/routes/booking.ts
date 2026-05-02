@@ -166,4 +166,18 @@ router.post("/booking/:id/cancel", attachAuth, async (req, res) => {
   }
 });
 
+router.delete("/booking/:id", requireAdmin, async (req, res) => {
+  try {
+    const [row] = await db
+      .delete(bookingTable)
+      .where(eq(bookingTable.id, req.params.id))
+      .returning();
+    if (!row) return res.status(404).json({ error: "Not found" });
+    res.status(204).send();
+  } catch (err) {
+    req.log.error({ err }, "Failed to delete booking");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;

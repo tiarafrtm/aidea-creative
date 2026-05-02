@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useGetRecentBookings, getGetRecentBookingsQueryKey, useUpdateBookingStatus } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, Clock, X, Search, Eye, MessageCircle, CalendarDays, Phone, Mail, FileText, Package, Banknote, Lightbulb, Wallet } from "lucide-react";
+import { Check, Clock, X, Search, Eye, MessageCircle, CalendarDays, Phone, Mail, FileText, Package, Banknote, Lightbulb, Wallet, Trash2, AlertTriangle, Eye as EyeIcon, EyeOff } from "lucide-react";
 import { AdminLayout } from "@/components/admin-layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,6 +19,9 @@ import { useToast } from "@/hooks/use-toast";
 import { QueryError } from "@/components/query-error";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
+import { useAuth } from "@/lib/auth";
+import { supabase } from "@/lib/supabase";
+import { adminFetch } from "@/lib/admin-api";
 
 const statuses = ["semua", "menunggu", "dikonfirmasi", "selesai", "dibatalkan"] as const;
 
@@ -40,12 +43,42 @@ function formatTanggal(tgl: string) {
 export default function AdminBookings() {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
   const { data, isLoading, error, refetch, isFetching } = useGetRecentBookings();
   const mutate = useUpdateBookingStatus();
   const [filter, setFilter] = useState<(typeof statuses)[number]>("semua");
   const [search, setSearch] = useState("");
   const [detailBooking, setDetailBooking] = useState<any>(null);
   const [rejectDialog, setRejectDialog] = useState<{ booking: any; alasan: string } | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{ booking: any; password: string; showPassword: boolean; isLoading: boolean } | null>(null);
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteDialog || !supabase || !user?.email) return;
+    if (!deleteDialog.password) {
+      toast({ title: "Password wajib diisi", variant: "destructive" });
+      return;
+    }
+    setDeleteDialog((prev) => prev ? { ...prev, isLoading: true } : prev);
+    try {
+      const { error: authErr } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: deleteDialog.password,
+      });
+      if (authErr) {
+        toast({ title: "Password salah", description: "Verifikasi gagal, coba lagi.", variant: "destructive" });
+        setDeleteDialog((prev) => prev ? { ...prev, isLoading: false, password: "" } : prev);
+        return;
+      }
+      await adminFetch(`/api/booking/${deleteDialog.booking.id}`, { method: "DELETE" });
+      toast({ title: "Booking dihapus", description: `${deleteDialog.booking.kodeBooking} telah dihapus permanen.` });
+      qc.invalidateQueries({ queryKey: getGetRecentBookingsQueryKey() });
+      setDeleteDialog(null);
+      setDetailBooking(null);
+    } catch (e: any) {
+      toast({ title: "Gagal menghapus", description: e.message, variant: "destructive" });
+      setDeleteDialog((prev) => prev ? { ...prev, isLoading: false } : prev);
+    }
+  };
 
   const bookings = Array.isArray(data) ? data : [];
   const filtered = bookings.filter((b: any) =>
@@ -458,11 +491,92 @@ export default function AdminBookings() {
                     </Button>
                   )}
                 </div>
+
+                <Separator />
+
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-red-500/80 mb-2">Danger Zone</p>
+                  <Button
+                    variant="outline"
+                    className="w-full text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+                    onClick={() => setDeleteDialog({ booking: detailBooking, password: "", showPassword: false, isLoading: false })}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1.5" /> Hapus Booking Permanen
+                  </Button>
+                </div>
               </div>
             </>
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteDialog} onOpenChange={(o) => { if (!o && !deleteDialog?.isLoading) setDeleteDialog(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" /> Hapus Booking Permanen
+            </DialogTitle>
+            <DialogDescription>
+              Tindakan ini tidak dapat dibatalkan. Data booking{" "}
+              <span className="font-semibold font-mono text-foreground">{deleteDialog?.booking.kodeBooking}</span>{" "}
+              atas nama <span className="font-semibold text-foreground">{deleteDialog?.booking.namaPemesan}</span> akan dihapus selamanya.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteDialog && (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-700">
+                Untuk melanjutkan, masukkan <strong>password akun admin</strong> Anda sebagai konfirmasi.
+              </div>
+              <div>
+                <Label className="text-sm mb-1.5 block">Password Admin</Label>
+                <div className="relative">
+                  <Input
+                    type={deleteDialog.showPassword ? "text" : "password"}
+                    placeholder="Masukkan password Anda"
+                    value={deleteDialog.password}
+                    onChange={(e) => setDeleteDialog((prev) => prev ? { ...prev, password: e.target.value } : prev)}
+                    onKeyDown={(e) => e.key === "Enter" && handleDeleteConfirm()}
+                    disabled={deleteDialog.isLoading}
+                    className="pr-10"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={() => setDeleteDialog((prev) => prev ? { ...prev, showPassword: !prev.showPassword } : prev)}
+                    tabIndex={-1}
+                  >
+                    {deleteDialog.showPassword ? <EyeOff className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setDeleteDialog(null)}
+              disabled={deleteDialog?.isLoading}
+            >
+              Batal
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              onClick={handleDeleteConfirm}
+              disabled={!deleteDialog?.password || deleteDialog?.isLoading}
+            >
+              {deleteDialog?.isLoading ? (
+                <span className="flex items-center gap-2"><span className="h-4 w-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Memverifikasi...</span>
+              ) : (
+                <span className="flex items-center gap-1.5"><Trash2 className="h-4 w-4" /> Hapus Permanen</span>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Rejection Dialog */}
       <Dialog open={!!rejectDialog} onOpenChange={(o) => !o && setRejectDialog(null)}>
