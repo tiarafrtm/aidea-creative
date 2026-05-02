@@ -1,5 +1,5 @@
-import { lazy, Suspense } from "react";
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { lazy, Suspense, useEffect, useRef } from "react";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { Toaster } from "@/components/ui/toaster";
@@ -7,7 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
 import { AiChatbot } from "@/components/ai-chatbot";
 import { ProtectedRoute } from "@/components/protected-route";
-import { AuthProvider } from "@/lib/auth";
+import { AuthProvider, useAuth } from "@/lib/auth";
 
 import Home from "@/pages/home";
 import NotFound from "@/pages/not-found";
@@ -89,9 +89,39 @@ function MainRoutes() {
   );
 }
 
+// Routes where we should NOT auto-redirect admins (they're intentionally there)
+const NON_REDIRECT_PATHS = ["/login", "/register", "/dashboard/login"];
+
+/**
+ * Once auth + profile are fully loaded, redirect admin users who land on
+ * any public/customer route (e.g. "/" or "/profil") to /dashboard.
+ * This handles the "returning user" case where the session is auto-restored
+ * from localStorage — the login-page redirect logic never runs in that case.
+ */
+function AdminRedirect() {
+  const { profile, profileChecked, isLoading } = useAuth();
+  const [location, setLocation] = useLocation();
+  const redirected = useRef(false);
+
+  useEffect(() => {
+    if (isLoading || !profileChecked) return;
+    if (redirected.current) return;
+    if (profile?.role !== "admin") return;
+    if (location.startsWith("/dashboard")) return;
+    if (NON_REDIRECT_PATHS.includes(location)) return;
+
+    redirected.current = true;
+    setLocation("/dashboard");
+  }, [isLoading, profileChecked, profile, location, setLocation]);
+
+  return null;
+}
+
 function Router() {
   return (
-    <Suspense fallback={<PageFallback />}>
+    <>
+      <AdminRedirect />
+      <Suspense fallback={<PageFallback />}>
       <Switch>
         <Route path="/login" component={Login} />
         <Route path="/register" component={Register} />
@@ -112,6 +142,7 @@ function Router() {
         </Route>
       </Switch>
     </Suspense>
+    </>
   );
 }
 
