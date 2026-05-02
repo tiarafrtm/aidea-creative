@@ -12,6 +12,20 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 import Home from "@/pages/home";
 import NotFound from "@/pages/not-found";
 
+// Admin pages — imported eagerly so navigation between dashboard pages is instant
+import AdminBeranda from "@/pages/admin/beranda";
+import AdminBookings from "@/pages/admin/bookings";
+import AdminProduk from "@/pages/admin/produk";
+import AdminPortfolio from "@/pages/admin/portfolio";
+import AdminJadwal from "@/pages/admin/jadwal";
+import AdminTestimoni from "@/pages/admin/testimoni";
+import AdminChat from "@/pages/admin/chat";
+import AdminLaporan from "@/pages/admin/laporan";
+import AdminUsers from "@/pages/admin/users";
+import AdminLanding from "@/pages/admin/landing";
+import AdminPromo from "@/pages/admin/promo";
+
+// Public pages — lazy loaded so they don't bloat the initial bundle
 const Portfolio = lazy(() => import("@/pages/portfolio"));
 const Paket = lazy(() => import("@/pages/paket"));
 const Layanan = lazy(() => import("@/pages/layanan"));
@@ -23,17 +37,6 @@ const Login = lazy(() => import("@/pages/login"));
 const Register = lazy(() => import("@/pages/register"));
 const AdminLogin = lazy(() => import("@/pages/admin-login"));
 const Profil = lazy(() => import("@/pages/profil"));
-const AdminBeranda = lazy(() => import("@/pages/admin/beranda"));
-const AdminBookings = lazy(() => import("@/pages/admin/bookings"));
-const AdminProduk = lazy(() => import("@/pages/admin/produk"));
-const AdminPortfolio = lazy(() => import("@/pages/admin/portfolio"));
-const AdminJadwal = lazy(() => import("@/pages/admin/jadwal"));
-const AdminTestimoni = lazy(() => import("@/pages/admin/testimoni"));
-const AdminChat = lazy(() => import("@/pages/admin/chat"));
-const AdminLaporan = lazy(() => import("@/pages/admin/laporan"));
-const AdminUsers = lazy(() => import("@/pages/admin/users"));
-const AdminLanding = lazy(() => import("@/pages/admin/landing"));
-const AdminPromo = lazy(() => import("@/pages/admin/promo"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
