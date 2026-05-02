@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearch } from "wouter";
 import { useListPaket, useListKategori, useAiRecommend } from "@workspace/api-client-react";
-import { Clock, Check, Sparkles, Loader2, Camera, Users, ImageIcon, ChevronRight, Star } from "lucide-react";
+import { Clock, Check, Sparkles, Loader2, Camera, ImageIcon, ChevronRight, Star, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,7 @@ export default function Paket() {
   const [kebutuhan, setKebutuhan] = useState("");
   const [budget, setBudget] = useState("");
   const [acara, setAcara] = useState("");
+  const [aiSheetOpen, setAiSheetOpen] = useState(false);
 
   const recommendMutation = useAiRecommend();
 
@@ -207,8 +208,8 @@ export default function Paket() {
             )}
           </div>
 
-          {/* Sidebar AI */}
-          <div className="lg:w-72 xl:w-80 w-full shrink-0 lg:sticky lg:top-24">
+          {/* Sidebar AI — desktop only */}
+          <div className="hidden lg:block lg:w-72 xl:w-80 shrink-0 lg:sticky lg:top-24">
             <Card className="overflow-hidden border-primary/20">
               <div className="h-1 bg-gradient-to-r from-primary/40 via-primary to-primary/40" />
               <CardContent className="p-5">
@@ -282,6 +283,116 @@ export default function Paket() {
 
         </div>
       </div>
+
+      {/* Mobile: floating AI button */}
+      <button
+        onClick={() => setAiSheetOpen(true)}
+        className="lg:hidden fixed bottom-24 right-4 z-40 flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 rounded-full shadow-lg shadow-primary/30 text-sm font-semibold"
+        aria-label="Buka Asisten Cerdas"
+      >
+        <Sparkles size={16} />
+        Asisten AI
+      </button>
+
+      {/* Mobile: bottom sheet overlay */}
+      {aiSheetOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end">
+          {/* Backdrop */}
+          <button
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setAiSheetOpen(false)}
+            aria-label="Tutup"
+          />
+
+          {/* Sheet panel */}
+          <div className="relative bg-background rounded-t-3xl shadow-2xl max-h-[90vh] flex flex-col animate-in slide-in-from-bottom duration-300">
+            {/* Handle bar */}
+            <div className="flex justify-center pt-3 pb-1 shrink-0">
+              <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+            </div>
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center text-primary">
+                  <Sparkles size={15} />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm leading-tight">Asisten Cerdas</p>
+                  <p className="text-[10px] text-muted-foreground">Rekomendasi paket via AI</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setAiSheetOpen(false)}
+                className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:bg-muted"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Scrollable content */}
+            <div className="overflow-y-auto flex-1 px-5 py-4 space-y-3">
+              <form onSubmit={(e) => { handleRecommend(e); }} className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="m-kebutuhan" className="text-xs font-medium">Kebutuhan Anda *</Label>
+                  <Textarea
+                    id="m-kebutuhan"
+                    placeholder="Contoh: Foto prewedding outdoor rustic untuk 2 orang..."
+                    className="resize-none h-24 text-sm bg-muted/40"
+                    value={kebutuhan}
+                    onChange={(e) => setKebutuhan(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="m-budget" className="text-xs font-medium">Maksimal Budget (Opsional)</Label>
+                  <Input
+                    id="m-budget"
+                    type="number"
+                    placeholder="1500000"
+                    className="text-sm bg-muted/40"
+                    value={budget}
+                    onChange={(e) => setBudget(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="m-acara" className="text-xs font-medium">Jenis Acara (Opsional)</Label>
+                  <Input
+                    id="m-acara"
+                    placeholder="Pernikahan, Wisuda, Ulang Tahun..."
+                    className="text-sm bg-muted/40"
+                    value={acara}
+                    onChange={(e) => setAcara(e.target.value)}
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full rounded-full"
+                  disabled={!kebutuhan || recommendMutation.isPending}
+                >
+                  {recommendMutation.isPending ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Menganalisis...</>
+                  ) : (
+                    <><Sparkles size={14} className="mr-2" /> Rekomendasikan Paket</>
+                  )}
+                </Button>
+              </form>
+
+              {recommendMutation.isSuccess && (
+                <div className="p-4 bg-primary/5 rounded-2xl border border-primary/15 text-sm text-foreground leading-relaxed">
+                  <p className="font-semibold text-primary mb-1.5 flex items-center gap-1.5">
+                    <Sparkles size={13} /> Hasil Analisis
+                  </p>
+                  <p className="whitespace-pre-wrap text-xs">{recommendMutation.data.rekomendasi}</p>
+                </div>
+              )}
+
+              {/* Safe area spacer */}
+              <div className="h-4" />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
