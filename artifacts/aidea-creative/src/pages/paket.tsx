@@ -53,23 +53,7 @@ export default function Paket() {
   return (
     <div className="min-h-screen bg-background">
 
-      {/* Hero */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-background to-primary/5 border-b border-border py-16 md:py-24">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent pointer-events-none" />
-        <div className="container mx-auto px-4 text-center relative z-10">
-          <div className="inline-flex items-center gap-2 bg-primary/10 text-primary text-xs font-semibold px-4 py-1.5 rounded-full mb-5 border border-primary/20">
-            <Camera size={14} /> Studio Foto Profesional
-          </div>
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold mb-4 leading-tight">
-            Pilih <span className="text-primary italic">Paket</span> Anda
-          </h1>
-          <p className="text-base md:text-lg text-muted-foreground max-w-xl mx-auto">
-            Harga transparan, hasil premium. Setiap paket dirancang untuk momen spesial Anda.
-          </p>
-        </div>
-      </section>
-
-      <div className="container mx-auto px-4 py-10 md:py-14">
+      <div className="container mx-auto px-4 pt-8 pb-10 md:pt-10 md:pb-14">
 
         {/* Filter tabs */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 mb-8 scrollbar-hide">
@@ -284,14 +268,13 @@ export default function Paket() {
         </div>
       </div>
 
-      {/* Mobile: floating AI button */}
+      {/* Mobile: floating AI button — icon-only circle, bottom-left */}
       <button
         onClick={() => setAiSheetOpen(true)}
-        className="lg:hidden fixed bottom-24 right-4 z-40 flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 rounded-full shadow-lg shadow-primary/30 text-sm font-semibold"
+        className="lg:hidden fixed bottom-6 left-4 z-40 w-12 h-12 rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 flex items-center justify-center"
         aria-label="Buka Asisten Cerdas"
       >
-        <Sparkles size={16} />
-        Asisten AI
+        <Sparkles size={20} />
       </button>
 
       {/* Mobile: bottom sheet overlay */}
