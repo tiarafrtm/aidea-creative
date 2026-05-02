@@ -68,16 +68,37 @@ function minutesToTime(m: number): string {
   return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 }
 
-function buildSlots(rule: DayRule): { jamMulai: string; jamSelesai: string }[] {
+function buildSlots(
+  rule: DayRule,
+  afterMinutes?: number,
+): { jamMulai: string; jamSelesai: string }[] {
   if (!rule.isBuka) return [];
   const start = timeToMinutes(rule.jamBuka);
   const end = timeToMinutes(rule.jamTutup);
   if (end <= start) return [];
   const slots: { jamMulai: string; jamSelesai: string }[] = [];
   for (let t = start; t + rule.slotMenit <= end; t += rule.slotMenit) {
+    // If afterMinutes is set (today's slots), skip slots that have already started
+    if (afterMinutes !== undefined && t < afterMinutes) continue;
     slots.push({ jamMulai: minutesToTime(t), jamSelesai: minutesToTime(t + rule.slotMenit) });
   }
   return slots;
+}
+
+/** Returns current time-of-day in minutes, using WIB (GMT+7). */
+function nowWIBMinutes(): number {
+  const nowUTC = new Date();
+  const nowWIB = new Date(nowUTC.getTime() + 7 * 60 * 60 * 1000);
+  return nowWIB.getUTCHours() * 60 + nowWIB.getUTCMinutes();
+}
+
+/** Returns today's date string "YYYY-MM-DD" in WIB (GMT+7). */
+function todayWIB(): Date {
+  const nowUTC = new Date();
+  const wibMs = nowUTC.getTime() + 7 * 60 * 60 * 1000;
+  const d = new Date(wibMs);
+  // Construct a midnight-UTC Date that represents WIB today
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
 
 function dayOfWeek(tanggal: string): number {
@@ -115,18 +136,20 @@ router.get("/jadwal", async (req, res) => {
       // No date filter — return next 30 days of derived availability so
       // legacy callers (booking page useListJadwal hook) still work.
       const out: any[] = [];
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const today = todayWIB();
+      const currentMinutes = nowWIBMinutes();
       for (let i = 0; i < 30; i++) {
         const d = new Date(today);
-        d.setDate(today.getDate() + i);
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth() + 1).padStart(2, "0");
-        const dd = String(d.getDate()).padStart(2, "0");
+        d.setUTCDate(today.getUTCDate() + i);
+        const yyyy = d.getUTCFullYear();
+        const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+        const dd = String(d.getUTCDate()).padStart(2, "0");
         const tgl = `${yyyy}-${mm}-${dd}`;
-        const rule = rules[String(d.getDay())];
+        const rule = rules[String(d.getUTCDay())];
         if (!rule?.isBuka) continue;
-        for (const slot of buildSlots(rule)) {
+        // For today (i === 0), filter out slots that have already started
+        const afterMin = i === 0 ? currentMinutes : undefined;
+        for (const slot of buildSlots(rule, afterMin)) {
           out.push({
             id: `${tgl}-${slot.jamMulai}`,
             tanggal: tgl,
@@ -147,7 +170,13 @@ router.get("/jadwal", async (req, res) => {
       res.json([]);
       return;
     }
-    const slots = buildSlots(rule).map((s, i) => ({
+    // If the requested date is today (WIB), filter out past slots
+    const todayStr = (() => {
+      const d = todayWIB();
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+    })();
+    const afterMin = tanggal === todayStr ? nowWIBMinutes() : undefined;
+    const slots = buildSlots(rule, afterMin).map((s) => ({
       id: `${tanggal}-${s.jamMulai}`,
       tanggal,
       jamMulai: s.jamMulai,
