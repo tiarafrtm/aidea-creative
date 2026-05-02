@@ -10,6 +10,7 @@ import {
   LogOut,
   MessageSquare,
   Phone,
+  Printer,
   Save,
   Star,
   Upload,
@@ -135,6 +136,183 @@ function formatTanggal(str: string) {
     return format(new Date(str + "T00:00:00"), "EEEE, dd MMMM yyyy", { locale: idLocale });
   } catch {
     return str;
+  }
+}
+
+function printInvoice(b: BookingRow) {
+  const formatRp = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
+  const tglBooking = format(new Date(b.created_at), "dd MMMM yyyy, HH:mm", { locale: idLocale });
+  const tglSesi = formatTanggal(b.tanggal_sesi);
+  const paketNama = b.paket_layanan?.nama_paket ?? "—";
+  const paketHarga = b.paket_layanan?.harga ?? b.total_harga;
+
+  const statusPembayaranLabel = ({ belum_bayar: "BELUM BAYAR", dp: "DP / UANG MUKA", lunas: "LUNAS" } as Record<string, string>)[b.status_pembayaran] ?? b.status_pembayaran.toUpperCase();
+  const statusBookingLabel = ({ menunggu: "MENUNGGU KONFIRMASI", dikonfirmasi: "DIKONFIRMASI", selesai: "SELESAI", dibatalkan: "DIBATALKAN" } as Record<string, string>)[b.status] ?? b.status.toUpperCase();
+  const statusColor = ({ belum_bayar: "#f97316", dp: "#0ea5e9", lunas: "#10b981" } as Record<string, string>)[b.status_pembayaran] ?? "#6b7280";
+  const bookingColor = ({ menunggu: "#f59e0b", dikonfirmasi: "#3b82f6", selesai: "#10b981", dibatalkan: "#ef4444" } as Record<string, string>)[b.status] ?? "#6b7280";
+
+  const html = `<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Struk Booking ${b.kode_booking}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f3f4f6;color:#111827;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.no-print{text-align:center;padding:16px 20px;background:#1e40af;display:flex;align-items:center;justify-content:center;gap:10px;position:sticky;top:0;z-index:99}
+.btn-print{background:white;color:#1e40af;border:none;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:opacity .15s}
+.btn-print:hover{opacity:.85}
+.btn-close{background:transparent;color:rgba(255,255,255,.85);border:1px solid rgba(255,255,255,.35);padding:10px 18px;border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit}
+.page{max-width:740px;margin:28px auto 48px;background:white;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.13)}
+.header{background:linear-gradient(135deg,#1e3a8a 0%,#1d4ed8 60%,#2563eb 100%);color:white;padding:30px 36px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.brand-name{font-size:19px;font-weight:700;letter-spacing:-.3px}
+.brand-sub{font-size:9px;letter-spacing:2.5px;text-transform:uppercase;opacity:.65;margin-top:3px}
+.brand-contact{font-size:11px;opacity:.7;margin-top:14px;line-height:1.9}
+.inv-meta{text-align:right;flex-shrink:0}
+.inv-label{font-size:9px;letter-spacing:3px;text-transform:uppercase;opacity:.65}
+.inv-title{font-size:34px;font-weight:800;letter-spacing:-1.5px;line-height:1}
+.inv-kode{font-size:13px;font-family:monospace;font-weight:600;color:#93c5fd;margin-top:5px;letter-spacing:.5px}
+.inv-date{font-size:11px;opacity:.6;margin-top:4px}
+.status-bar{padding:10px 36px;background:#f8fafc;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{padding:3px 11px;border-radius:999px;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase}
+.divider{width:1px;height:16px;background:#d1d5db}
+.body{padding:28px 36px}
+.sec-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#9ca3af;margin-bottom:10px}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+.info-box{background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px}
+.inf-label{font-size:9px;color:#9ca3af;text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px}
+.inf-value{font-size:12.5px;font-weight:500;color:#111827}
+.inf-row{margin-bottom:10px}
+.inf-row:last-child{margin-bottom:0}
+table{width:100%;border-collapse:collapse;margin-bottom:20px}
+thead{background:#1e3a8a;color:white}
+thead th{padding:9px 13px;text-align:left;font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+thead th:last-child{text-align:right}
+tbody tr{border-bottom:1px solid #f3f4f6}
+tbody tr:hover{background:#fafafa}
+tbody td{padding:11px 13px;font-size:12.5px;vertical-align:top}
+tbody td:last-child{text-align:right;font-weight:600;white-space:nowrap}
+.desc-sub{font-size:10px;color:#9ca3af;margin-top:2px}
+.total-box{background:linear-gradient(135deg,#1e3a8a,#1d4ed8);color:white;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}
+.total-label{font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;opacity:.8}
+.total-amt{font-size:22px;font-weight:800;letter-spacing:-.5px}
+.note-box{border:1.5px dashed #d1d5db;border-radius:10px;padding:12px 14px;font-size:11.5px;color:#6b7280;line-height:1.7;margin-bottom:22px}
+.footer{border-top:1px solid #e5e7eb;padding:18px 36px;display:flex;justify-content:space-between;align-items:flex-end;background:#f8fafc}
+.foot-l{font-size:10px;color:#9ca3af;line-height:1.8}
+.foot-r{text-align:right}
+.foot-thanks{font-size:13px;font-weight:700;color:#1e40af}
+.foot-sub{font-size:10px;color:#9ca3af;margin-top:2px}
+.watermark{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);font-size:72px;font-weight:900;text-transform:uppercase;letter-spacing:6px;opacity:.035;pointer-events:none;white-space:nowrap;color:#1e3a8a}
+.page-body{position:relative}
+@media print{
+  body{background:white}
+  .no-print{display:none!important}
+  .page{margin:0;border-radius:0;box-shadow:none;max-width:100%}
+}
+</style>
+</head>
+<body>
+<div class="no-print">
+  <button class="btn-print" onclick="window.print()">🖨&nbsp; Cetak / Simpan PDF</button>
+  <button class="btn-close" onclick="window.close()">Tutup</button>
+</div>
+<div class="page">
+  <div class="header">
+    <div>
+      <div class="brand-name">AideaCreative</div>
+      <div class="brand-sub">Smart Photo Studio</div>
+      <div class="brand-contact">
+        Jl. A. Yani No. 12, Pringsewu, Lampung<br>
+        📞 +62 852-7923-2879<br>
+        ✉ aidea.creative@gmail.com
+      </div>
+    </div>
+    <div class="inv-meta">
+      <div class="inv-label">Dokumen Resmi</div>
+      <div class="inv-title">STRUK</div>
+      <div class="inv-kode">${b.kode_booking}</div>
+      <div class="inv-date">Diterbitkan: ${tglBooking}</div>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <span class="pill" style="background:${statusColor}20;color:${statusColor};">${statusPembayaranLabel}</span>
+    <div class="divider"></div>
+    <span class="pill" style="background:${bookingColor}18;color:${bookingColor};">${statusBookingLabel}</span>
+  </div>
+
+  <div class="page-body">
+    <div class="watermark">${b.status_pembayaran === "lunas" ? "LUNAS" : b.status_pembayaran === "dp" ? "DP" : ""}</div>
+    <div class="body">
+
+      <div class="info-grid">
+        <div class="info-box">
+          <div class="sec-title">Data Pemesan</div>
+          <div class="inf-row"><div class="inf-label">Nama Lengkap</div><div class="inf-value">${b.nama_pemesan}</div></div>
+          <div class="inf-row"><div class="inf-label">Email</div><div class="inf-value">${b.email}</div></div>
+          <div class="inf-row"><div class="inf-label">No. Telepon / WA</div><div class="inf-value">${b.telepon}</div></div>
+        </div>
+        <div class="info-box">
+          <div class="sec-title">Detail Sesi</div>
+          <div class="inf-row"><div class="inf-label">Tanggal Sesi</div><div class="inf-value">${tglSesi}</div></div>
+          <div class="inf-row"><div class="inf-label">Jam Sesi</div><div class="inf-value">${b.jam_sesi}</div></div>
+          ${b.konsep_foto ? `<div class="inf-row"><div class="inf-label">Konsep Foto</div><div class="inf-value">${b.konsep_foto}</div></div>` : ""}
+        </div>
+      </div>
+
+      <div class="sec-title">Rincian Pemesanan</div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:36px">#</th>
+            <th>Deskripsi Layanan</th>
+            <th style="width:60px;text-align:center">Qty</th>
+            <th>Harga</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td>
+              <strong>${paketNama}</strong>
+              <div class="desc-sub">Sesi foto · ${tglSesi} · ${b.jam_sesi}</div>
+            </td>
+            <td style="text-align:center">1x</td>
+            <td>${formatRp(paketHarga)}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="total-box">
+        <div class="total-label">Total Pembayaran</div>
+        <div class="total-amt">${formatRp(b.total_harga)}</div>
+      </div>
+
+      ${b.catatan_pelanggan ? `<div class="note-box"><strong style="color:#374151">Catatan Khusus:</strong> ${b.catatan_pelanggan}</div>` : ""}
+
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="foot-l">
+      Dokumen ini diterbitkan otomatis oleh sistem AideaCreative.<br>
+      Harap simpan struk ini sebagai bukti reservasi Anda.<br>
+      Untuk pertanyaan: +62 852-7923-2879
+    </div>
+    <div class="foot-r">
+      <div class="foot-thanks">Terima kasih! 🙏</div>
+      <div class="foot-sub">Kami tidak sabar bertemu Anda.</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>`;
+
+  const w = window.open("", "_blank", "width=840,height=940,scrollbars=yes,resizable=yes");
+  if (w) {
+    w.document.write(html);
+    w.document.close();
   }
 }
 
@@ -691,13 +869,22 @@ export default function Profil() {
                 </div>
               </div>
 
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => setSelectedBooking(null)}
-              >
-                Tutup
-              </Button>
+              <div className="flex flex-col gap-2 pt-1">
+                <Button
+                  className="w-full gap-2"
+                  onClick={() => printInvoice(selectedBooking)}
+                >
+                  <Printer className="h-4 w-4" />
+                  Cetak / Unduh Struk
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setSelectedBooking(null)}
+                >
+                  Tutup
+                </Button>
+              </div>
             </>
           )}
         </DialogContent>
