@@ -106,68 +106,9 @@ export default function Testimoni() {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
 
-        {/* Top bar */}
-        <div className="flex items-center justify-end gap-3 mb-8">
-          {/* Write review button */}
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button className="rounded-full gap-2 shrink-0" onClick={() => {
-                if (profile?.nama_lengkap) form.setValue("namaTampil", profile.nama_lengkap);
-              }}>
-                <PenLine size={15} />
-                Tulis Ulasan
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle className="font-serif">Tulis Ulasan</DialogTitle>
-                <DialogDescription>Bagaimana pengalaman pemotretan Anda bersama AideaCreative?</DialogDescription>
-              </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
-                  <FormField control={form.control} name="namaTampil" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nama Anda</FormLabel>
-                      <FormControl><Input placeholder="John Doe" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="rating" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Penilaian</FormLabel>
-                      <div className="flex gap-2">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <button key={star} type="button" onClick={() => field.onChange(star)} className="focus:outline-none">
-                            <Star size={28} fill={star <= field.value ? "currentColor" : "none"}
-                              className={star <= field.value ? "text-amber-400" : "text-muted-foreground"} />
-                          </button>
-                        ))}
-                      </div>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="komentar" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Ulasan</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Ceritakan pengalaman Anda..." className="resize-none" rows={4} {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <Button type="submit" className="w-full mt-4" disabled={createTestimoni.isPending}>
-                    {createTestimoni.isPending && <Loader2 className="animate-spin mr-2" />}
-                    Kirim Ulasan
-                  </Button>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        {/* Filter by star + stats icon */}
-        {!isLoading && allList.length > 0 && (
-          <div className="flex items-center gap-2 mb-6 flex-wrap">
+        {/* Filter row: filters + stats icon + write button */}
+        <div className="flex items-center gap-2 mb-6 flex-wrap">
+          {!isLoading && allList.length > 0 && (<>
             <button
               onClick={() => setFilterRating(null)}
               className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${filterRating === null ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:border-primary/40"}`}
@@ -184,17 +125,75 @@ export default function Testimoni() {
                 <span className="ml-0.5 opacity-70">({ratingCounts.find(rc => rc.star === r)!.count})</span>
               </button>
             ))}
-
-            {/* Stats icon button */}
             <button
               onClick={() => setStatsOpen(true)}
-              className="ml-1 w-7 h-7 rounded-full border border-border bg-background flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/40 transition-all"
+              className="w-7 h-7 rounded-full border border-border bg-background flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/40 transition-all"
               aria-label="Lihat statistik rating"
             >
               <BarChart2 size={14} />
             </button>
-          </div>
-        )}
+          </>)}
+
+          {/* Write review — pushed to the right */}
+          <button
+            onClick={() => {
+              if (profile?.nama_lengkap) form.setValue("namaTampil", profile.nama_lengkap);
+              setOpen(true);
+            }}
+            className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border border-primary bg-primary text-primary-foreground hover:opacity-90 transition-all"
+          >
+            <PenLine size={11} />
+            Tulis Ulasan
+          </button>
+        </div>
+
+        {/* Write review dialog (controlled) */}
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle className="font-serif">Tulis Ulasan</DialogTitle>
+              <DialogDescription>Bagaimana pengalaman pemotretan Anda bersama AideaCreative?</DialogDescription>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+                <FormField control={form.control} name="namaTampil" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nama Anda</FormLabel>
+                    <FormControl><Input placeholder="John Doe" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="rating" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Penilaian</FormLabel>
+                    <div className="flex gap-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button key={star} type="button" onClick={() => field.onChange(star)} className="focus:outline-none">
+                          <Star size={28} fill={star <= field.value ? "currentColor" : "none"}
+                            className={star <= field.value ? "text-amber-400" : "text-muted-foreground"} />
+                        </button>
+                      ))}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="komentar" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ulasan</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Ceritakan pengalaman Anda..." className="resize-none" rows={4} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <Button type="submit" className="w-full mt-4" disabled={createTestimoni.isPending}>
+                  {createTestimoni.isPending && <Loader2 className="animate-spin mr-2" />}
+                  Kirim Ulasan
+                </Button>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
 
         {/* Stats modal */}
         <Dialog open={statsOpen} onOpenChange={setStatsOpen}>
