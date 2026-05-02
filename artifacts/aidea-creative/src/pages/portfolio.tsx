@@ -35,18 +35,7 @@ export default function Portfolio() {
 
   return (
     <div className="bg-muted/30 min-h-screen">
-      <div className="container mx-auto px-4 md:px-6 py-14 md:py-20">
-        <div className="max-w-3xl mb-10">
-          <span className="inline-block text-[11px] font-semibold tracking-[0.18em] uppercase text-primary bg-primary/10 border border-primary/20 rounded-full px-3 py-1 mb-3">
-            Galeri Portfolio
-          </span>
-          <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground mb-3">
-            Karya <span className="text-primary">Terbaik</span> AideaCreative
-          </h1>
-          <p className="text-base md:text-lg text-muted-foreground">
-            Jelajahi koleksi foto kami. Cari momen favorit Anda atau filter berdasarkan kategori.
-          </p>
-        </div>
+      <div className="container mx-auto px-4 md:px-6 py-8 md:py-10">
 
         <div className="mb-8 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
           <div className="relative w-full md:max-w-sm">

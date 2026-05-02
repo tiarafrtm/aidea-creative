@@ -137,14 +137,8 @@ export default function Toko() {
   );
 
   return (
-    <div className="min-h-screen container mx-auto px-4 py-10 sm:py-16">
-      <div className="flex flex-col md:flex-row justify-between md:items-end mb-8 sm:mb-12 gap-4 sm:gap-6">
-        <div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold mb-3">Toko <span className="text-primary italic">Produk</span></h1>
-          <p className="text-base sm:text-lg text-muted-foreground max-w-xl">
-            Lengkapi kenangan Anda dengan produk cetak foto, bingkai elegan, dan album eksklusif berkualitas premium.
-          </p>
-        </div>
+    <div className="min-h-screen container mx-auto px-4 py-8 sm:py-10">
+      <div className="flex justify-end mb-6">
         <div className="relative w-full md:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
           <Input

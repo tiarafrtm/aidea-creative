@@ -55,15 +55,8 @@ export default function Testimoni() {
   };
 
   return (
-    <div className="min-h-screen container mx-auto px-4 py-16">
-      <div className="flex flex-col md:flex-row justify-between items-center mb-16 gap-6 text-center md:text-left">
-        <div className="max-w-2xl">
-          <h1 className="text-4xl md:text-5xl font-serif font-bold mb-4">Pengalaman <span className="text-primary italic">Mereka</span></h1>
-          <p className="text-lg text-muted-foreground">
-            Baca pengalaman nyata dari klien kami. Kami bangga dapat menjadi bagian dari momen bersejarah dalam hidup mereka.
-          </p>
-        </div>
-        
+    <div className="min-h-screen container mx-auto px-4 py-8">
+      <div className="flex justify-end mb-8">
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button size="lg" className="rounded-full" onClick={() => {
