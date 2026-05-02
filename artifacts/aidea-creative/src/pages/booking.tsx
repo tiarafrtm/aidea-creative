@@ -240,7 +240,7 @@ export default function Booking() {
                               </Button>
                             </FormControl>
                           </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0 rounded-2xl shadow-xl border-border" align="start">
+                          <PopoverContent className="w-auto p-0 rounded-2xl shadow-xl border-border overflow-hidden" align="start">
                             <Calendar
                               mode="single"
                               selected={field.value}
@@ -256,10 +256,10 @@ export default function Booking() {
                                 const mm = String(date.getMonth() + 1).padStart(2, "0");
                                 const dd = String(date.getDate()).padStart(2, "0");
                                 const key = `${yyyy}-${mm}-${dd}`;
-                                // If we already have rule-derived availability, only enable open dates.
                                 if (tanggalTersediaSet.size > 0 && !tanggalTersediaSet.has(key)) return true;
                                 return false;
                               }}
+                              className="min-w-[300px]"
                               initialFocus
                             />
                           </PopoverContent>
