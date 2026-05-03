@@ -7,9 +7,10 @@ import { attachAuth, requireAdmin } from "../middlewares/auth";
 const router = Router();
 
 function getSnap() {
-  if (!process.env.MIDTRANS_SERVER_KEY) return null;
+  const serverKey = process.env.MIDTRANS_SERVER_KEY?.trim();
+  if (!serverKey) return null;
   const { Snap } = require("midtrans-client") as any;
-  return new Snap({ isProduction: false, serverKey: process.env.MIDTRANS_SERVER_KEY });
+  return new Snap({ isProduction: false, serverKey });
 }
 
 function generateKodePesanan(): string {

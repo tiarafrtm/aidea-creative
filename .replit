@@ -85,3 +85,8 @@ localPort = 25639
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+VITE_MIDTRANS_CLIENT_KEY = "Mid-client-mtXT-6umS02pM65w"

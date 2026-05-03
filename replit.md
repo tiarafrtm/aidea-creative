@@ -1,5 +1,18 @@
 # AideaCreative Studio Foto - Smart Web E-Commerce
 
+## Latest Updates (May 3, 2026)
+
+- **Fitur Toko (E-Commerce) lengkap dengan Midtrans Snap:**
+  - **Cart (keranjang)**: `CartProvider` (localStorage) + `CartDrawer` sidebar + `CartButton` dengan badge jumlah item. Dipasang global via App.tsx.
+  - **Toko halaman**: tombol "Tambah ke Keranjang" di setiap card produk dan di detail modal (dengan qty selector). Cart icon muncul di header toko.
+  - **Checkout dialog**: form nama/email/WhatsApp (auto-fill dari profil), konfirmasi item, lalu buka Midtrans Snap popup. Setelah sukses redirect ke riwayat pesanan.
+  - **API `/api/pesanan`**: POST (buat pesanan + kurangi stok + buat Midtrans snap token), GET /me (riwayat user), GET / (admin), PUT /:id/status (admin), POST /midtrans-notification (webhook).
+  - **Admin Pesanan Toko** (`/dashboard/pesanan`): tabel semua pesanan, filter by status, sheet detail dengan item list + kontrol status (diproses/dikerjakan/selesai/batal) + update status pembayaran (belum_bayar/dp/lunas) + WA link. Realtime via Supabase.
+  - **Profil user**: STATUS_PESANAN map diperbaiki (diproses/dikerjakan/selesai/dikirim/dibatalkan).
+  - **DB**: kolom `midtrans_order_id`, `midtrans_snap_token` di `pesanan_produk`; kolom `nama_produk` di `item_pesanan` (snapshot nama saat checkout).
+  - **Env vars**: `MIDTRANS_SERVER_KEY` (secret, server-side), `VITE_MIDTRANS_CLIENT_KEY` (shared env var, frontend Snap.js).
+  - Pickup only — ambil di studio (tidak ada pengiriman).
+
 ## Latest Updates (Apr 30, 2026 — pm)
 - **Upload limit raised to 20MB** in `<SupabaseMultiUploader />` and new single-image `<SupabaseUploader />`. Express body limit on `/api/upload/supabase` raised to 30MB; Supabase bucket file size limit set to 25MB. Existing buckets are auto-updated via `updateBucket` on first use.
 - **AI swapped to pio.codes / qwen-turbo.** `artifacts/api-server/src/routes/ai.ts` now uses `AI_INTEGRATIONS_OPENAI_BASE_URL` + `AI_INTEGRATIONS_OPENAI_API_KEY` + optional `AI_MODEL` (default `qwen-turbo`). Removed `response_format: json_object` (qwen doesn't support it) and added `extractJson()` helper for tolerant JSON parsing in `/api/ai/recommend`.
