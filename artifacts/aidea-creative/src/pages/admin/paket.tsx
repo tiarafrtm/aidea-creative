@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   useListPaket, getListPaketQueryKey, useCreatePaket, useUpdatePaket, useDeletePaket,
   useListKategori,
@@ -59,6 +59,8 @@ export default function AdminPaket() {
   const [form, setForm] = useState<PaketForm>(emptyForm);
   const [fasilitasInput, setFasilitasInput] = useState("");
   const [aiPending, setAiPending] = useState(false);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const dragIdxRef = useRef<number | null>(null);
 
   const items = Array.isArray(data) ? data : [];
   const kategoriList = Array.isArray(kategoriData) ? kategoriData : [];
@@ -348,10 +350,33 @@ export default function AdminPaket() {
               {form.fasilitas.length > 0 && (
                 <ul className="mt-2 space-y-1">
                   {form.fasilitas.map((f, i) => (
-                    <li key={i} className="flex items-center gap-2 text-sm bg-muted/50 rounded-md px-3 py-1.5">
-                      <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <li
+                      key={i}
+                      draggable
+                      onDragStart={() => { dragIdxRef.current = i; }}
+                      onDragOver={e => { e.preventDefault(); setDragOverIdx(i); }}
+                      onDrop={() => {
+                        const from = dragIdxRef.current;
+                        if (from === null || from === i) { setDragOverIdx(null); return; }
+                        setForm(prev => {
+                          const arr = [...prev.fasilitas];
+                          const [moved] = arr.splice(from, 1);
+                          arr.splice(i, 0, moved);
+                          return { ...prev, fasilitas: arr };
+                        });
+                        dragIdxRef.current = null;
+                        setDragOverIdx(null);
+                      }}
+                      onDragEnd={() => { dragIdxRef.current = null; setDragOverIdx(null); }}
+                      className={`flex items-center gap-2 text-sm rounded-md px-3 py-1.5 transition-colors select-none
+                        ${dragOverIdx === i ? "bg-primary/10 border border-primary/30" : "bg-muted/50 border border-transparent"}`}
+                    >
+                      <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0 cursor-grab active:cursor-grabbing" />
                       <span className="flex-1">{f}</span>
-                      <button onClick={() => removeFasilitas(i)} className="text-muted-foreground hover:text-destructive transition-colors">
+                      <button
+                        onClick={() => removeFasilitas(i)}
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                      >
                         <X className="h-3.5 w-3.5" />
                       </button>
                     </li>
