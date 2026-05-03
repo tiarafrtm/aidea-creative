@@ -86,19 +86,16 @@ const THEMES: Theme[] = [
 ];
 
 const TOTAL_SHOTS = 4;
+
+// Capture size (used by captureCanvas)
 const PHOTO_W = 360;
 const PHOTO_H = 270;
-const STRIP_PAD_X = 20;
-const STRIP_GAP = 10;
-const STRIP_HEADER_H = 52;
-const STRIP_FOOTER_H = 58;
-const STRIP_W = PHOTO_W + STRIP_PAD_X * 2;
-const STRIP_H =
-  STRIP_HEADER_H + TOTAL_SHOTS * PHOTO_H + (TOTAL_SHOTS - 1) * STRIP_GAP + STRIP_FOOTER_H;
 
 type Step = "preview" | "countdown" | "flash" | "between" | "processing" | "edit";
 
-function drawRoundRect(
+// ── Strip drawing helpers ──────────────────────────────────────────────────
+
+function rrect(
   ctx: CanvasRenderingContext2D,
   x: number, y: number, w: number, h: number, r: number
 ) {
@@ -115,86 +112,202 @@ function drawRoundRect(
   ctx.closePath();
 }
 
+function filledStar(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, outerR: number, innerR: number, color: string
+) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const angle = (i * Math.PI) / 5 - Math.PI / 2;
+    const r = i % 2 === 0 ? outerR : innerR;
+    const px = cx + r * Math.cos(angle);
+    const py = cy + r * Math.sin(angle);
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+
+function dot(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, r: number, color: string
+) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function hexToRgba(hex: string, alpha: number) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 function generateStrip(photos: string[], theme: Theme): Promise<string> {
   return new Promise((resolve) => {
+    // ── Layout constants ──
+    const SW = 420;                // strip width
+    const MX = 22;                 // horizontal margin
+    const PW = SW - MX * 2;       // photo display width  = 376
+    const PH = Math.round(PW * 3 / 4); // photo height 4:3 = 282
+    const PTOP = 10;               // padding above photo inside polaroid card
+    const PBOT = 30;               // polaroid bottom (handwriting area)
+    const FRAME_H = PTOP + PH + PBOT;
+    const GAP = 22;                // gap between polaroid cards
+    const TOP_STRIPE = 24;        // colorful stripe at very top
+    const TOP_PAD = 18;           // space after stripe before first card
+    const BOT_PAD = 16;           // space before footer
+    const FOOTER_H = 72;
+    const SH = TOP_STRIPE + TOP_PAD + 4 * FRAME_H + 3 * GAP + BOT_PAD + FOOTER_H;
+
     const canvas = document.createElement("canvas");
-    canvas.width = STRIP_W;
-    canvas.height = STRIP_H;
+    canvas.width = SW;
+    canvas.height = SH;
     const ctx = canvas.getContext("2d")!;
 
+    // ── Background (light tint) ──
     ctx.fillStyle = theme.stripBg;
-    ctx.fillRect(0, 0, STRIP_W, STRIP_H);
+    ctx.fillRect(0, 0, SW, SH);
 
+    // ── Subtle dot-grid background ──
+    const accent = hexToRgba(theme.borderColor, 0.09);
+    for (let gy = 14; gy < SH - FOOTER_H; gy += 20) {
+      for (let gx = 12; gx < SW; gx += 20) {
+        dot(ctx, gx, gy, 1.2, accent);
+      }
+    }
+
+    // ── Left / right colored border lines ──
     ctx.fillStyle = theme.borderColor;
-    ctx.fillRect(0, 0, 6, STRIP_H);
-    ctx.fillRect(STRIP_W - 6, 0, 6, STRIP_H);
+    ctx.fillRect(0, 0, 7, SH);
+    ctx.fillRect(SW - 7, 0, 7, SH);
 
-    // Header
+    // ── Top stripe ──
     ctx.fillStyle = theme.headerBg;
-    ctx.fillRect(0, 0, STRIP_W, STRIP_HEADER_H);
-    ctx.fillStyle = theme.headerText;
-    ctx.font = "bold 18px Arial, sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("AideaCreative Studio Foto", STRIP_W / 2, STRIP_HEADER_H / 2 - 6);
-    ctx.font = "12px Arial, sans-serif";
-    ctx.fillStyle = theme.headerText + "BB";
-    ctx.fillText(
-      `${theme.name}  -  ${new Date().toLocaleDateString("id-ID", {
-        day: "2-digit", month: "long", year: "numeric",
-      })}`,
-      STRIP_W / 2,
-      STRIP_HEADER_H / 2 + 12
-    );
+    ctx.fillRect(7, 0, SW - 14, TOP_STRIPE);
+    // dot pattern inside stripe
+    for (let dx = 18; dx < SW - 14; dx += 18) {
+      dot(ctx, dx, TOP_STRIPE / 2, 2.5, "rgba(255,255,255,0.30)");
+    }
+    // Stars on stripe corners
+    filledStar(ctx, 22, TOP_STRIPE / 2, 5, 2.5, "rgba(255,255,255,0.55)");
+    filledStar(ctx, SW - 22, TOP_STRIPE / 2, 5, 2.5, "rgba(255,255,255,0.55)");
 
     const loadAndDraw = async () => {
       for (let i = 0; i < photos.length; i++) {
+        const frameY = TOP_STRIPE + TOP_PAD + i * (FRAME_H + GAP);
+        const photoY = frameY + PTOP;
+
+        // Polaroid shadow (slight offset underneath)
+        ctx.fillStyle = hexToRgba(theme.borderColor, 0.12);
+        rrect(ctx, MX + 3, frameY + 4, PW, FRAME_H, 8);
+        ctx.fill();
+
+        // Polaroid white card
+        ctx.fillStyle = "#FFFFFF";
+        rrect(ctx, MX, frameY, PW, FRAME_H, 8);
+        ctx.fill();
+
+        // Thin colored top accent bar on card
+        ctx.fillStyle = theme.headerBg;
+        ctx.save();
+        rrect(ctx, MX, frameY, PW, 5, 8);
+        ctx.fill();
+        ctx.fillRect(MX, frameY + 3, PW, 2);
+        ctx.restore();
+
+        // Photo
         const img = new Image();
         await new Promise<void>((res) => {
           img.onload = () => {
-            const x = STRIP_PAD_X;
-            const y = STRIP_HEADER_H + i * (PHOTO_H + STRIP_GAP);
-            ctx.fillStyle = theme.borderColor;
-            ctx.fillRect(x - 4, y - 4, PHOTO_W + 8, PHOTO_H + 8);
             ctx.save();
-            drawRoundRect(ctx, x, y, PHOTO_W, PHOTO_H, 2);
+            rrect(ctx, MX, photoY, PW, PH, 4);
             ctx.clip();
             const sw = img.naturalWidth, sh = img.naturalHeight;
-            const targetRatio = PHOTO_W / PHOTO_H;
+            const targetRatio = PW / PH;
             const srcRatio = sw / sh;
             let sx = 0, sy = 0, sW = sw, sH = sh;
             if (srcRatio > targetRatio) { sW = sh * targetRatio; sx = (sw - sW) / 2; }
             else { sH = sw / targetRatio; sy = (sh - sH) / 2; }
-            ctx.drawImage(img, sx, sy, sW, sH, x, y, PHOTO_W, PHOTO_H);
+            ctx.drawImage(img, sx, sy, sW, sH, MX, photoY, PW, PH);
             ctx.restore();
-            // Numbering badge
-            ctx.fillStyle = theme.borderColor;
-            ctx.beginPath();
-            ctx.arc(x + 18, y + 18, 13, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = theme.headerText;
-            ctx.font = "bold 12px Arial";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText(`${i + 1}`, x + 18, y + 18);
             res();
           };
           img.src = photos[i];
         });
+
+        // Photo number badge (bottom-left of polaroid)
+        const badgeX = MX + 12;
+        const badgeY = photoY + PH + PBOT / 2;
+        dot(ctx, badgeX, badgeY, 11, theme.headerBg);
+        ctx.fillStyle = theme.headerText;
+        ctx.font = "bold 11px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(`${i + 1}`, badgeX, badgeY);
+
+        // Decorative separator between cards (not after last)
+        if (i < 3) {
+          const sepY = frameY + FRAME_H + GAP / 2;
+          const cx = SW / 2;
+
+          // Center star
+          filledStar(ctx, cx, sepY, 6, 3, hexToRgba(theme.borderColor, 0.55));
+          // Flanking dots
+          dot(ctx, cx - 20, sepY, 3, hexToRgba(theme.borderColor, 0.35));
+          dot(ctx, cx + 20, sepY, 3, hexToRgba(theme.borderColor, 0.35));
+          dot(ctx, cx - 38, sepY, 2, hexToRgba(theme.borderColor, 0.20));
+          dot(ctx, cx + 38, sepY, 2, hexToRgba(theme.borderColor, 0.20));
+          // Side mini-stars
+          filledStar(ctx, cx - 56, sepY, 3.5, 1.8, hexToRgba(theme.borderColor, 0.25));
+          filledStar(ctx, cx + 56, sepY, 3.5, 1.8, hexToRgba(theme.borderColor, 0.25));
+        }
       }
 
-      // Footer
-      const fy = STRIP_H - STRIP_FOOTER_H;
+      // ── Footer ──
+      const fy = SH - FOOTER_H;
+
+      // Footer background
       ctx.fillStyle = theme.footerBg;
-      ctx.fillRect(0, fy, STRIP_W, STRIP_FOOTER_H);
-      ctx.fillStyle = theme.footerText;
-      ctx.font = "bold 14px Arial";
+      ctx.fillRect(7, fy, SW - 14, FOOTER_H);
+
+      // Stars in footer corners
+      filledStar(ctx, 28, fy + 18, 6, 3, hexToRgba(theme.headerText, 0.45));
+      filledStar(ctx, SW - 28, fy + 18, 6, 3, hexToRgba(theme.headerText, 0.45));
+      filledStar(ctx, 42, fy + 50, 3.5, 1.8, hexToRgba(theme.headerText, 0.25));
+      filledStar(ctx, SW - 42, fy + 50, 3.5, 1.8, hexToRgba(theme.headerText, 0.25));
+
+      // Separator line
+      ctx.fillStyle = hexToRgba(theme.headerText, 0.18);
+      ctx.fillRect(28, fy + 1, SW - 56, 1);
+
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText("Web Photobooth - AideaCreative", STRIP_W / 2, fy + 20);
+
+      // Studio name
+      ctx.fillStyle = theme.footerText;
+      ctx.font = "bold 16px Arial";
+      ctx.fillText("AideaCreative Studio Foto", SW / 2, fy + 22);
+
+      // Theme name + date
       ctx.font = "11px Arial";
-      ctx.fillStyle = theme.footerText + "CC";
-      ctx.fillText("Studio Foto Pringsewu, Lampung", STRIP_W / 2, fy + 40);
+      ctx.fillStyle = hexToRgba(theme.footerText, 0.75);
+      ctx.fillText(theme.name, SW / 2, fy + 41);
+
+      // Bottom info
+      ctx.font = "10px Arial";
+      ctx.fillStyle = hexToRgba(theme.footerText, 0.55);
+      ctx.fillText(
+        `Web Photobooth  •  ${new Date().toLocaleDateString("id-ID", {
+          day: "2-digit", month: "long", year: "numeric",
+        })}`,
+        SW / 2,
+        fy + 58
+      );
 
       resolve(canvas.toDataURL("image/png"));
     };
