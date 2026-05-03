@@ -45,7 +45,6 @@ export function AuthCard({ initialMode }: { initialMode: "login" | "register" })
   const { user, profile, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const { data: settings } = useSiteSettings();
-  const customLoginBg = settings?.loginBgImage;
   const isLogin = location.startsWith("/login");
   const isRegister = location.startsWith("/register");
 
@@ -69,13 +68,13 @@ export function AuthCard({ initialMode }: { initialMode: "login" | "register" })
   // logging in still land on /dashboard instead of /profil.
   const isCustomerDefaultRedirect = (target: string | null | undefined) =>
     !target || target === "/" || target === "/profil" || target.startsWith("/profil?");
-  const redirectTo = explicitRedirect ?? "/profil";
+  const redirectTo = explicitRedirect ?? "/";
 
   useEffect(() => {
     if (!user) return;
     // Wait until the profile (and therefore the role) is known before
     // redirecting. Otherwise admins can briefly get sent to /profil if the
-    // login URL carries a default ?redirect=/profil (e.g. after Google OAuth).
+    // login URL carries a default ?redirect=/ (e.g. after Google OAuth).
     if (!profile) return;
 
     if (profile.role === "admin") {
@@ -90,11 +89,11 @@ export function AuthCard({ initialMode }: { initialMode: "login" | "register" })
     }
 
     // Pelanggan: honour explicit redirect (unless it points to /dashboard
-    // which they cannot access), otherwise go to /profil.
-    if (explicitRedirect && !explicitRedirect.startsWith("/dashboard")) {
+    // which they cannot access), otherwise go to beranda.
+    if (explicitRedirect && !explicitRedirect.startsWith("/dashboard") && !isCustomerDefaultRedirect(explicitRedirect)) {
       setLocation(explicitRedirect);
     } else {
-      setLocation("/profil");
+      setLocation("/");
     }
   }, [user, profile, explicitRedirect, authLoading, setLocation]);
 
@@ -128,9 +127,9 @@ export function AuthCard({ initialMode }: { initialMode: "login" | "register" })
   const handleGoogle = async () => {
     if (!supabase) return;
     const base = `${window.location.origin}${import.meta.env.BASE_URL}login`;
-    const callback = explicitRedirect
+    const callback = explicitRedirect && !isCustomerDefaultRedirect(explicitRedirect)
       ? `${base}?redirect=${encodeURIComponent(explicitRedirect)}`
-      : `${base}?redirect=${encodeURIComponent("/profil")}`;
+      : `${base}?redirect=${encodeURIComponent("/")}`;
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -382,12 +381,7 @@ export function AuthCard({ initialMode }: { initialMode: "login" | "register" })
 
       {/* RIGHT: Visual panel — 3-col masonry with featured portfolio photos */}
       <div className="hidden lg:block w-1/2 bg-[#0c1220] relative overflow-hidden">
-        {customLoginBg ? (
-          <div
-            className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: `url(${customLoginBg})` }}
-          />
-        ) : (
+        {false ? null : (
           <div className="absolute inset-0 grid grid-cols-3 gap-2 p-2 [mask-image:linear-gradient(to_bottom,transparent_0%,black_6%,black_94%,transparent_100%)]">
             {[0, 1, 2].map((col) => {
               const colPhotos = sidePhotos.filter((_, i) => i % 3 === col);

@@ -134,6 +134,8 @@ export default function Home() {
   const promoHovered = useRef(false);
   const promoTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const promoDragStartX = useRef<number | null>(null);
+  const promoTrackRef = useRef<HTMLDivElement>(null);
+  const promoCardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const n = promoBanners.length;
 
@@ -152,6 +154,16 @@ export default function Home() {
     }, 4000);
     return () => { if (promoTimerRef.current) clearInterval(promoTimerRef.current); };
   }, [n, promoNext]);
+
+  /* Scroll track to active card using real DOM positions */
+  useEffect(() => {
+    const track = promoTrackRef.current;
+    const card = promoCardRefs.current[promoIdx];
+    if (!track || !card) return;
+    const trackPad = 48; // px-12 on md
+    const targetLeft = card.offsetLeft - trackPad;
+    track.scrollTo({ left: Math.max(0, targetLeft), behavior: "smooth" });
+  }, [promoIdx]);
 
   return (
     <div className="w-full overflow-hidden">
@@ -288,35 +300,35 @@ export default function Home() {
                 promoDragStartX.current = null;
               }}
             >
-              {/* Track */}
-              <div className="overflow-hidden px-4 sm:px-8 md:px-12">
-                <div
-                  className="flex gap-4 transition-transform duration-500 ease-in-out"
-                  style={{
-                    transform: `translateX(calc(-${promoIdx} * (min(320px, 80vw) + 16px)))`,
-                  }}
-                >
+              {/* Track — scroll-based, no translateX so never "breaks" */}
+              <div
+                ref={promoTrackRef}
+                className="overflow-x-auto scrollbar-hide px-4 sm:px-8 md:px-12"
+                style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+              >
+                <div className="flex gap-4 pb-1">
                   {promoBanners.map((p, i) => {
                     const isActive = i === promoIdx;
                     return (
                       <div
                         key={p.id}
-                        onClick={() => !isActive && setPromoIdx(i)}
-                        className="flex-shrink-0 transition-all duration-500"
+                        ref={(el) => { promoCardRefs.current[i] = el; }}
+                        onClick={() => setPromoIdx(i)}
+                        className="flex-shrink-0 transition-all duration-500 cursor-pointer"
                         style={{
                           width: "clamp(240px, 72vw, 320px)",
-                          opacity: isActive ? 1 : 0.65,
-                          transform: isActive ? "scale(1)" : "scale(0.96)",
-                          cursor: isActive ? "default" : "pointer",
+                          transform: isActive ? "scale(1.02)" : "scale(1)",
                         }}
                       >
-                        <div className={`rounded-2xl overflow-hidden bg-card border transition-shadow duration-300 ${isActive ? "border-primary/30 shadow-[0_8px_40px_rgba(0,0,0,0.14)]" : "border-border shadow-md"}`}>
+                        <div className={`rounded-2xl overflow-hidden bg-card border transition-shadow duration-300 ${isActive ? "border-primary/30 shadow-[0_8px_40px_rgba(0,0,0,0.14)]" : "border-border shadow-sm"}`}>
                           <div className="relative overflow-hidden bg-muted" style={{ aspectRatio: "4/3" }}>
                             {p.gambarUrl ? (
-                              <img
+                              <motion.img
                                 src={p.gambarUrl}
                                 alt={p.judul}
-                                className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+                                className="w-full h-full object-cover"
+                                animate={{ scale: isActive ? 1.04 : 1 }}
+                                transition={{ duration: 0.5, ease: "easeOut" }}
                               />
                             ) : (
                               <div className="w-full h-full bg-gradient-to-br from-primary/30 to-amber-200 flex items-center justify-center">
@@ -342,7 +354,7 @@ export default function Home() {
                                 })}
                               </p>
                             )}
-                            {p.link && isActive && (
+                            {p.link && (
                               <a
                                 href={p.link}
                                 target="_blank"
@@ -357,6 +369,8 @@ export default function Home() {
                       </div>
                     );
                   })}
+                  {/* trailing spacer so last card scrolls fully into view */}
+                  <div className="flex-shrink-0 w-4 sm:w-8 md:w-12" />
                 </div>
               </div>
 
