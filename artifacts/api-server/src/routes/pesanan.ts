@@ -243,30 +243,12 @@ router.get("/pesanan", requireAdmin, async (req, res) => {
   }
 });
 
-// DELETE /pesanan/:id — admin atau pemilik pesanan menghapus
-// Pelanggan: hanya boleh hapus jika status "diproses" atau "dibatalkan"
-// Admin: bisa hapus semua status
-router.delete("/pesanan/:id", attachAuth, async (req, res) => {
+// DELETE /pesanan/:id — hanya admin
+router.delete("/pesanan/:id", requireAdmin, async (req, res) => {
   try {
-    if (!req.authUser) return res.status(401).json({ error: "Login diperlukan" });
-
     const [pesanan] = await db.select().from(pesananProdukTable)
       .where(eq(pesananProdukTable.id, req.params.id));
     if (!pesanan) return res.status(404).json({ error: "Pesanan tidak ditemukan" });
-
-    const isAdmin = req.authUser.role === "admin";
-    if (!isAdmin && pesanan.pelangganId !== req.authUser.id) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-
-    if (!isAdmin) {
-      const statusBolehHapus = ["diproses", "dibatalkan"];
-      if (!statusBolehHapus.includes(pesanan.status)) {
-        return res.status(400).json({
-          error: `Pesanan tidak bisa dihapus karena statusnya "${pesanan.status}". Hubungi admin untuk info lebih lanjut.`,
-        });
-      }
-    }
 
     await db.delete(itemPesananTable).where(eq(itemPesananTable.pesananId, pesanan.id));
     await db.delete(pesananProdukTable).where(eq(pesananProdukTable.id, pesanan.id));
