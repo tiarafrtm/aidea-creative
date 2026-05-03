@@ -110,7 +110,7 @@ const STRIP_W = PHOTO_W + STRIP_PAD_X * 2;
 const STRIP_H =
   STRIP_HEADER_H + TOTAL_SHOTS * PHOTO_H + (TOTAL_SHOTS - 1) * STRIP_GAP + STRIP_FOOTER_H;
 
-type Step = "setup" | "ready" | "countdown" | "flash" | "between" | "done" | "result";
+type Step = "setup" | "preview" | "ready" | "countdown" | "flash" | "between" | "done" | "result";
 
 function drawRoundRect(
   ctx: CanvasRenderingContext2D,
@@ -329,14 +329,18 @@ export default function Photobooth() {
     [captureFrame, stopCamera, theme]
   );
 
-  const startSession = useCallback(async () => {
+  const openCamera = useCallback(async () => {
     setPhotos([]);
     setStripUrl(null);
     setShotIdx(0);
-    setStep("ready");
+    setStep("preview");
     await startCamera();
-    timerRef.current = setTimeout(() => runCountdown(0), 1500);
-  }, [startCamera, runCountdown]);
+  }, [startCamera]);
+
+  const startCapture = useCallback(() => {
+    setStep("ready");
+    timerRef.current = setTimeout(() => runCountdown(0), 500);
+  }, [runCountdown]);
 
   const retake = useCallback(() => {
     stopCamera();
@@ -362,6 +366,8 @@ export default function Photobooth() {
     step === "flash" ||
     step === "between" ||
     step === "done";
+
+  const showCamera = step === "preview" || isCapturing;
 
   return (
     <div className="bg-muted/30 min-h-screen">
@@ -488,12 +494,12 @@ export default function Photobooth() {
               )}
 
               <Button
-                onClick={startSession}
+                onClick={openCamera}
                 className="w-full h-12 rounded-2xl text-base font-semibold gap-2"
                 size="lg"
               >
                 <Camera className="h-4 w-4" />
-                Mulai Sesi Foto
+                Lanjut
               </Button>
             </div>
 
@@ -559,8 +565,8 @@ export default function Photobooth() {
           </div>
         )}
 
-        {/* ── CAPTURE SCREEN ── */}
-        {isCapturing && (
+        {/* ── CAMERA SCREEN (preview + capture) ── */}
+        {showCamera && (
           <div className="flex flex-col items-center gap-6">
             <div className="relative w-full max-w-2xl">
               <div
@@ -575,6 +581,26 @@ export default function Photobooth() {
                   className="w-full h-full object-cover"
                   style={{ transform: mirror ? "scaleX(-1)" : "none" }}
                 />
+
+                {/* Preview mode: show "Mulai Foto" button + back */}
+                {step === "preview" && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-end pb-6 gap-3">
+                    <Button
+                      onClick={startCapture}
+                      size="lg"
+                      className="h-12 px-8 rounded-full font-semibold shadow-lg text-base"
+                      style={{ background: theme.accentColor, color: theme.accentText }}
+                    >
+                      Mulai Foto
+                    </Button>
+                    <button
+                      onClick={retake}
+                      className="text-xs text-white/80 hover:text-white underline underline-offset-2"
+                    >
+                      Kembali pilih tema
+                    </button>
+                  </div>
+                )}
 
                 {/* Flash */}
                 <AnimatePresence>
@@ -641,8 +667,8 @@ export default function Photobooth() {
                   </div>
                 )}
 
-                {/* Shot counter */}
-                {step !== "done" && (
+                {/* Shot counter — only during capture */}
+                {isCapturing && step !== "done" && (
                   <div
                     className="absolute top-3 right-3 rounded-full px-3 py-1 text-xs font-bold shadow"
                     style={{ background: theme.accentColor, color: theme.accentText }}
@@ -657,34 +683,36 @@ export default function Photobooth() {
                 </div>
               </div>
 
-              {/* Thumbnail row */}
-              <div className="mt-4 flex gap-2 justify-center">
-                {[...Array(TOTAL_SHOTS)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="rounded-lg overflow-hidden bg-muted"
-                    style={{
-                      width: 72,
-                      height: 54,
-                      border: `2px solid ${
-                        i < photos.length ? theme.accentColor : "hsl(var(--border))"
-                      }`,
-                    }}
-                  >
-                    {photos[i] ? (
-                      <img
-                        src={photos[i]}
-                        className="w-full h-full object-cover"
-                        alt={`foto ${i + 1}`}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-[11px] text-muted-foreground font-semibold">
-                        {i + 1}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+              {/* Thumbnail row — only during capture */}
+              {isCapturing && (
+                <div className="mt-4 flex gap-2 justify-center">
+                  {[...Array(TOTAL_SHOTS)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="rounded-lg overflow-hidden bg-muted"
+                      style={{
+                        width: 72,
+                        height: 54,
+                        border: `2px solid ${
+                          i < photos.length ? theme.accentColor : "hsl(var(--border))"
+                        }`,
+                      }}
+                    >
+                      {photos[i] ? (
+                        <img
+                          src={photos[i]}
+                          className="w-full h-full object-cover"
+                          alt={`foto ${i + 1}`}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-[11px] text-muted-foreground font-semibold">
+                          {i + 1}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <canvas ref={captureCanvasRef} className="hidden" />
