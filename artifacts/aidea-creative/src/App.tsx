@@ -29,6 +29,7 @@ import AdminPromo from "@/pages/admin/promo";
 import AdminPaket from "@/pages/admin/paket";
 
 // Public pages — lazy loaded so they don't bloat the initial bundle
+const Photobooth = lazy(() => import("@/pages/photobooth"));
 const Portfolio = lazy(() => import("@/pages/portfolio"));
 const Paket = lazy(() => import("@/pages/paket"));
 const Toko = lazy(() => import("@/pages/toko"));
@@ -127,6 +128,7 @@ function Router() {
       <Switch>
         <Route path="/login" component={Login} />
         <Route path="/register" component={Register} />
+        <Route path="/photobooth" component={Photobooth} />
         <Route path="/dashboard/login" component={AdminLogin} />
         <Route path="/dashboard"><ProtectedRoute requireAdmin><AdminBeranda /></ProtectedRoute></Route>
         <Route path="/dashboard/booking"><ProtectedRoute requireAdmin><AdminBookings /></ProtectedRoute></Route>

@@ -57,6 +57,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { name: "Paket", href: "/paket" },
     { name: "Toko", href: "/toko" },
     { name: "Testimoni", href: "/testimoni" },
+    { name: "📷 Photobooth", href: "/photobooth" },
   ];
 
   return (

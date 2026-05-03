@@ -192,6 +192,11 @@ export default function Home() {
                   Eksplor Karya <ArrowUpRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
+              <Link href="/photobooth">
+                <Button size="lg" variant="ghost" className="rounded-full h-12 px-7 text-sm font-medium border border-dashed border-primary/40 hover:bg-primary/5">
+                  📷 Coba Photobooth
+                </Button>
+              </Link>
             </motion.div>
           </div>
 
