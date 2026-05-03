@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useCart } from "@/contexts/cart-context";
 import { CartButton, CartDrawer } from "@/components/cart-drawer";
+import { useToast } from "@/hooks/use-toast";
 
 const kategoriLabel: Record<string, string> = {
   cetak_foto: "Cetak Foto",
@@ -29,7 +30,8 @@ type Produk = {
 };
 
 function ProductDetail({ produk, onClose }: { produk: Produk; onClose: () => void }) {
-  const { addToCart, items } = useCart();
+  const { addToCart, items, setIsOpen: setCartOpen } = useCart();
+  const { toast } = useToast();
   const images = (produk.gambarUrl ?? []).filter(Boolean);
   const [idx, setIdx] = useState(0);
   const [qty, setQty] = useState(1);
@@ -49,6 +51,7 @@ function ProductDetail({ produk, onClose }: { produk: Produk; onClose: () => voi
       gambarUrl: images[0] ?? null,
     }, qty);
     onClose();
+    setCartOpen(true);
   };
 
   return (
@@ -176,6 +179,7 @@ function ProductDetail({ produk, onClose }: { produk: Produk; onClose: () => voi
 export default function Toko() {
   const { data: produkList, isLoading } = useListProduk();
   const { addToCart } = useCart();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [selected, setSelected] = useState<Produk | null>(null);
 
@@ -282,6 +286,11 @@ export default function Toko() {
                           harga: produk.harga,
                           stok: produk.stok,
                           gambarUrl: gambarPertama ?? null,
+                        });
+                        toast({
+                          title: "Ditambahkan ke keranjang",
+                          description: produk.namaProduk,
+                          duration: 2000,
                         });
                       }}
                       className="h-7 px-2.5 text-xs rounded-full"

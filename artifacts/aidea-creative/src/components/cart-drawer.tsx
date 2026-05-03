@@ -84,13 +84,28 @@ function CheckoutDialog({ open, onClose }: { open: boolean; onClose: () => void 
         // Beri waktu 1 frame agar Radix selesai cleanup overflow:hidden
         await new Promise((r) => setTimeout(r, 80));
 
+        const verifyPayment = async () => {
+          try {
+            await fetch("/api/pesanan/verify", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
+              body: JSON.stringify({ kodePesanan: data.kodePesanan }),
+            });
+          } catch { /* gagal verify — tidak blokir flow */ }
+        };
+
         (window as any).snap.pay(data.snapToken, {
-          onSuccess: () => {
+          onSuccess: async () => {
+            await verifyPayment();
             clearCart();
             toast({ title: "Pembayaran berhasil! 🎉", description: `Kode pesanan: ${data.kodePesanan}` });
             setLocation("/profil");
           },
-          onPending: () => {
+          onPending: async () => {
+            await verifyPayment();
             clearCart();
             toast({ title: "Pembayaran tertunda", description: "Selesaikan pembayaran sesuai instruksi yang dikirim." });
             setLocation("/profil");

@@ -133,6 +133,65 @@ router.post("/pesanan", attachAuth, async (req, res) => {
   }
 });
 
+// POST /pesanan/verify — dipanggil frontend setelah onSuccess/onPending Snap
+// Memverifikasi status ke Midtrans CoreAPI dan update DB
+router.post("/pesanan/verify", attachAuth, async (req, res) => {
+  try {
+    if (!req.authUser) return res.status(401).json({ error: "Unauthorized" });
+
+    const { kodePesanan } = req.body;
+    if (!kodePesanan) return res.status(400).json({ error: "kodePesanan diperlukan" });
+
+    const [pesanan] = await db.select().from(pesananProdukTable)
+      .where(eq(pesananProdukTable.kodePesanan, kodePesanan));
+    if (!pesanan) return res.status(404).json({ error: "Pesanan tidak ditemukan" });
+    if (pesanan.pelangganId !== req.authUser.id) return res.status(403).json({ error: "Forbidden" });
+
+    const serverKey = process.env.MIDTRANS_SERVER_KEY?.trim();
+    if (serverKey) {
+      try {
+        const { CoreApi } = require("midtrans-client") as any;
+        const core = new CoreApi({ isProduction: false, serverKey });
+        const tx = await core.transaction.status(kodePesanan);
+
+        let newStatus: "belum_bayar" | "dp" | "lunas" = pesanan.statusPembayaran as any;
+        if (tx.transaction_status === "settlement" ||
+          (tx.transaction_status === "capture" && tx.fraud_status === "accept")) {
+          newStatus = "lunas";
+        } else if (tx.transaction_status === "pending") {
+          newStatus = pesanan.statusPembayaran as any;
+        }
+
+        if (newStatus !== pesanan.statusPembayaran) {
+          await db.update(pesananProdukTable)
+            .set({ statusPembayaran: newStatus })
+            .where(eq(pesananProdukTable.kodePesanan, kodePesanan));
+        }
+      } catch (err) {
+        req.log.error({ err }, "Midtrans status check failed, marking lunas from callback trust");
+        // Fallback: percaya callback onSuccess dari Snap
+        await db.update(pesananProdukTable)
+          .set({ statusPembayaran: "lunas" })
+          .where(eq(pesananProdukTable.kodePesanan, kodePesanan));
+      }
+    } else {
+      // Tidak ada server key terkonfigurasi — percaya callback
+      await db.update(pesananProdukTable)
+        .set({ statusPembayaran: "lunas" })
+        .where(eq(pesananProdukTable.kodePesanan, kodePesanan));
+    }
+
+    const [updated] = await db.select().from(pesananProdukTable)
+      .where(eq(pesananProdukTable.kodePesanan, kodePesanan));
+    const items = await db.select().from(itemPesananTable)
+      .where(eq(itemPesananTable.pesananId, updated.id));
+    res.json(formatPesanan(updated, items));
+  } catch (err) {
+    req.log.error({ err }, "Failed to verify pesanan");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.post("/pesanan/midtrans-notification", async (req, res) => {
   try {
     const { order_id, transaction_status, fraud_status } = req.body;

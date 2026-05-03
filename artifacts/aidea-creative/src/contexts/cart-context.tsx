@@ -52,7 +52,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       return [...prev, { ...item, qty: Math.min(qty, item.stok) }];
     });
-    setIsOpen(true);
+    // Tidak auto-buka drawer — biarkan user lanjut browse dulu
   };
 
   const removeFromCart = (produkId: string) => {
