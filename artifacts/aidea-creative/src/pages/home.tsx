@@ -155,6 +155,9 @@ export default function Home() {
     return () => { if (promoTimer.current) clearInterval(promoTimer.current); };
   }, [promoBanners.length]);
 
+  const promoIndicatorCount = promoBanners.length;
+  const promoTrackWidth = `calc(${promoBanners.length * 100}% + ${(promoBanners.length - 1) * 24}px)`;
+
   return (
     <div className="w-full overflow-hidden">
       {/* HERO */}
@@ -372,16 +375,16 @@ export default function Home() {
                     // Tablet: 3-card layout
                     type SlotDef = [number, number, number, number];
                     const desktopDefs: Record<string, SlotDef> = {
-                      "far-left":  [-760, 0.66, 0.70, 1],
-                      "left":      [-390, 0.84, 0.90, 2],
-                      "center":    [   0, 1.00, 1.00, 10],
-                      "right":     [ 390, 0.84, 0.90, 2],
-                      "far-right": [ 760, 0.66, 0.70, 1],
+                      "far-left":  [-500, 0.82, 0.82, 1],
+                      "left":      [-250, 0.96, 0.95, 4],
+                      "center":    [   0, 1.12, 1.00, 10],
+                      "right":     [ 250, 0.96, 0.95, 4],
+                      "far-right": [ 500, 0.82, 0.82, 1],
                     };
                     const tabletDefs: Record<string, SlotDef> = {
-                      "left":   [-280, 0.82, 0.88, 2],
-                      "center": [   0, 1.00, 1.00, 10],
-                      "right":  [ 280, 0.82, 0.88, 2],
+                      "left":   [-200, 0.92, 0.9, 2],
+                      "center": [   0, 1.08, 1.00, 10],
+                      "right":  [ 200, 0.92, 0.9, 2],
                     };
                     const slotDefs = isTablet ? tabletDefs : desktopDefs;
 
@@ -425,7 +428,7 @@ export default function Home() {
                       ];
                     };
 
-                    const cardW = isTablet ? "clamp(240px, 38vw, 390px)" : "clamp(250px, 18vw, 300px)";
+                    const cardW = isTablet ? "clamp(280px, 42vw, 430px)" : "clamp(300px, 22vw, 360px)";
 
                     return buildSlots().map(({ idx, slot }) => {
                       const p = promoBanners[idx];
@@ -450,7 +453,7 @@ export default function Home() {
                           }}
                         >
                           <div
-                            className={`rounded-[1.4rem] overflow-hidden bg-card border ${
+                            className={`rounded-[1.5rem] overflow-hidden bg-card border ${
                               isCenter
                                 ? "border-border/80 shadow-[0_10px_48px_rgba(0,0,0,0.16)]"
                                 : isAdj
@@ -473,8 +476,8 @@ export default function Home() {
                               )}
                             </div>
                             <div className={isCenter ? "p-4" : "p-3"}>
-                              <h3 className={`font-bold line-clamp-1 ${isCenter ? "text-base mb-1" : "text-xs mb-0.5"}`}>{p.judul}</h3>
-                              <p className={`text-muted-foreground line-clamp-2 ${isCenter ? "text-sm" : "text-[11px]"}`}>{p.deskripsi}</p>
+                              <h3 className={`font-bold line-clamp-1 ${isCenter ? "text-xl mb-1" : "text-sm mb-0.5"}`}>{p.judul}</h3>
+                              <p className={`text-muted-foreground line-clamp-2 ${isCenter ? "text-sm" : "text-xs"}`}>{p.deskripsi}</p>
                               {p.tanggalBerakhir && isCenter && (
                                 <p className="text-[10px] text-muted-foreground/50 mt-2">
                                   s/d {new Date(p.tanggalBerakhir).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
@@ -507,7 +510,7 @@ export default function Home() {
             )}
 
             {/* Dot indicators — shown for tablet/desktop below the track */}
-            {!isMobile && promoBanners.length > 1 && (
+            {!isMobile && (
               <div className="flex items-center justify-center gap-2 mt-6">
                 {promoBanners.map((_, i) => (
                   <button key={i} onClick={() => setPromoActive(i)} aria-label={`Promo ${i + 1}`}
