@@ -4,6 +4,17 @@ import { bookingTable, paketLayananTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { attachAuth, requireAdmin } from "../middlewares/auth";
 
+const serverKey = process.env.MIDTRANS_SERVER_KEY?.trim();
+const clientKey = process.env.VITE_MIDTRANS_CLIENT_KEY?.trim();
+
+function getSnap() {
+  if (!serverKey) return null;
+  try {
+    const { Snap } = require("midtrans-client") as any;
+    return new Snap({ isProduction: false, serverKey, clientKey });
+  } catch { return null; }
+}
+
 const router = Router();
 
 function generateKodeBooking(): string {
@@ -176,6 +187,93 @@ router.delete("/booking/:id", requireAdmin, async (req, res) => {
     res.status(204).send();
   } catch (err) {
     req.log.error({ err }, "Failed to delete booking");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /booking/:id/payment — buat snap token Midtrans untuk booking
+router.post("/booking/:id/payment", attachAuth, async (req, res) => {
+  try {
+    if (!req.authUser) return res.status(401).json({ error: "Unauthorized" });
+
+    const rows = await db
+      .select({ booking: bookingTable, namaPaket: paketLayananTable.namaPaket })
+      .from(bookingTable)
+      .leftJoin(paketLayananTable, eq(bookingTable.paketId, paketLayananTable.id))
+      .where(eq(bookingTable.id, req.params.id));
+    if (!rows.length) return res.status(404).json({ error: "Booking tidak ditemukan" });
+    const { booking, namaPaket } = rows[0];
+    if (booking.pelangganId !== req.authUser.id) return res.status(403).json({ error: "Forbidden" });
+    if (booking.statusPembayaran === "lunas") return res.status(400).json({ error: "Booking sudah lunas" });
+
+    let snapToken: string | null = null;
+    const snap = getSnap();
+    if (snap) {
+      try {
+        const parameter = {
+          transaction_details: {
+            order_id: `${booking.kodeBooking}-${Date.now()}`,
+            gross_amount: booking.totalHarga,
+          },
+          item_details: [{ id: booking.paketId, price: booking.totalHarga, quantity: 1, name: namaPaket ?? "Paket Foto" }],
+          customer_details: {
+            first_name: booking.namaPemesan,
+            email: booking.email,
+            phone: booking.telepon,
+          },
+        };
+        snapToken = await snap.createTransactionToken(parameter);
+        await db.update(bookingTable)
+          .set({ midtransOrderId: parameter.transaction_details.order_id })
+          .where(eq(bookingTable.id, booking.id));
+      } catch (err) {
+        req.log.error({ err }, "Failed to create Midtrans snap token for booking");
+      }
+    }
+
+    res.json({ snapToken, kodeBooking: booking.kodeBooking });
+  } catch (err) {
+    req.log.error({ err }, "Failed to create booking payment");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /booking/:id/verify-payment — verifikasi status pembayaran
+router.post("/booking/:id/verify-payment", attachAuth, async (req, res) => {
+  try {
+    if (!req.authUser) return res.status(401).json({ error: "Unauthorized" });
+
+    const [booking] = await db.select().from(bookingTable).where(eq(bookingTable.id, req.params.id));
+    if (!booking) return res.status(404).json({ error: "Booking tidak ditemukan" });
+    if (booking.pelangganId !== req.authUser.id) return res.status(403).json({ error: "Forbidden" });
+
+    if (serverKey && booking.midtransOrderId) {
+      try {
+        const { CoreApi } = require("midtrans-client") as any;
+        const core = new CoreApi({ isProduction: false, serverKey });
+        const tx = await core.transaction.status(booking.midtransOrderId);
+        if (
+          tx.transaction_status === "settlement" ||
+          (tx.transaction_status === "capture" && tx.fraud_status === "accept")
+        ) {
+          await db.update(bookingTable).set({ statusPembayaran: "lunas" }).where(eq(bookingTable.id, booking.id));
+        }
+      } catch {
+        await db.update(bookingTable).set({ statusPembayaran: "lunas" }).where(eq(bookingTable.id, booking.id));
+      }
+    } else {
+      await db.update(bookingTable).set({ statusPembayaran: "lunas" }).where(eq(bookingTable.id, booking.id));
+    }
+
+    const [updated] = await db.select().from(bookingTable).where(eq(bookingTable.id, booking.id));
+    const [paketRow] = await db
+      .select({ namaPaket: paketLayananTable.namaPaket })
+      .from(paketLayananTable)
+      .where(eq(paketLayananTable.id, updated.paketId));
+
+    res.json(formatBooking(updated, paketRow?.namaPaket));
+  } catch (err) {
+    req.log.error({ err }, "Failed to verify booking payment");
     res.status(500).json({ error: "Internal server error" });
   }
 });

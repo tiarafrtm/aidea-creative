@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, CalendarRange, Package, Image as ImageIcon,
   Clock, Users, FileBarChart, MessagesSquare, LogOut, Menu, X, ShieldCheck, ExternalLink,
-  Megaphone, Settings, UserCog, ShoppingCart, Camera,
+  Megaphone, Settings, UserCog, ShoppingCart, Camera, PanelLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
@@ -47,7 +47,14 @@ export function AdminLayout({ children, title, subtitle }: { children: ReactNode
   const [location, setLocation] = useLocation();
   const { signOut, profile } = useAuth();
   const [open, setOpen] = useState(false);
+  const [desktopOpen, setDesktopOpen] = useState(() => {
+    try { return localStorage.getItem("admin-sidebar") !== "closed"; } catch { return true; }
+  });
   const { bookingCount, pesananCount } = usePendingCounts();
+
+  useEffect(() => {
+    try { localStorage.setItem("admin-sidebar", desktopOpen ? "open" : "closed"); } catch {}
+  }, [desktopOpen]);
 
   const isActive = (href: string) => (href === "/dashboard" ? location === "/dashboard" : location.startsWith(href));
 
@@ -94,7 +101,9 @@ export function AdminLayout({ children, title, subtitle }: { children: ReactNode
 
   return (
     <div className="min-h-screen flex bg-muted/30">
-      <aside className={`fixed md:sticky top-0 left-0 h-screen w-64 bg-background border-r border-border z-40 flex flex-col transition-transform md:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}>
+      <aside className={`fixed top-0 left-0 h-dvh w-64 bg-background border-r border-border z-40 flex flex-col transition-transform duration-200
+        ${open ? "translate-x-0" : "-translate-x-full"}
+        ${desktopOpen ? "md:sticky md:flex md:translate-x-0" : "md:hidden"}`}>
         <div className="p-5 border-b border-border flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-foreground text-background flex items-center justify-center">
             <ShieldCheck size={20} />
@@ -141,7 +150,7 @@ export function AdminLayout({ children, title, subtitle }: { children: ReactNode
             </div>
           ))}
         </nav>
-        <div className="p-3 border-t border-border space-y-1">
+        <div className="p-3 border-t border-border space-y-1 shrink-0">
           <div className="px-3 py-2 text-xs">
             <p className="text-muted-foreground">Masuk sebagai</p>
             <p className="font-semibold truncate">{profile?.nama_lengkap ?? "Admin"}</p>
@@ -162,18 +171,30 @@ export function AdminLayout({ children, title, subtitle }: { children: ReactNode
       <div className="flex-1 min-w-0">
         <header className="sticky top-0 z-20 bg-background/85 backdrop-blur border-b border-border">
           <div className="flex items-center justify-between px-4 md:px-8 py-4">
-            <button
-              className="md:hidden p-1 rounded-lg hover:bg-muted transition-colors"
-              onClick={() => setOpen((o) => !o)}
-              aria-label={open ? "Tutup sidebar" : "Buka sidebar"}
-            >
-              {open ? <X size={22} /> : <Menu size={22} />}
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Mobile hamburger */}
+              <button
+                className="md:hidden p-1 rounded-lg hover:bg-muted transition-colors"
+                onClick={() => setOpen((o) => !o)}
+                aria-label={open ? "Tutup sidebar" : "Buka sidebar"}
+              >
+                {open ? <X size={22} /> : <Menu size={22} />}
+              </button>
+              {/* Desktop sidebar toggle */}
+              <button
+                className="hidden md:flex p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                onClick={() => setDesktopOpen((o) => !o)}
+                aria-label={desktopOpen ? "Tutup sidebar" : "Buka sidebar"}
+                title={desktopOpen ? "Tutup sidebar" : "Buka sidebar"}
+              >
+                <PanelLeft size={20} />
+              </button>
+            </div>
             <div>
               <h1 className="text-xl md:text-2xl font-bold">{title}</h1>
               {subtitle && <p className="text-xs md:text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
             </div>
-            <div className="w-6 md:hidden" />
+            <div className="w-6 md:w-8" />
           </div>
         </header>
         <main className="p-4 md:p-8">{children}</main>

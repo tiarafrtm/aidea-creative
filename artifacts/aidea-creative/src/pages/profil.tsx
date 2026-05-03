@@ -88,6 +88,8 @@ type PesananRow = {
   createdAt: string;
   created_at: string;
   items: ItemPesananRow[];
+  midtransSnapToken?: string | null;
+  midtransOrderId?: string | null;
 };
 
 type TestimoniRow = {
@@ -109,6 +111,27 @@ type TestimoniDialogState = {
   rating: number;
   komentar: string;
 };
+
+const SNAP_SRC = "https://app.sandbox.midtrans.com/snap/snap.js";
+const MIDTRANS_CLIENT_KEY = (import.meta as any).env?.VITE_MIDTRANS_CLIENT_KEY as string | undefined;
+
+function loadSnapScript(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if ((window as any).snap) { resolve(); return; }
+    if (document.getElementById("midtrans-snap")) {
+      const existing = document.getElementById("midtrans-snap");
+      if ((window as any).snap) { resolve(); return; }
+      existing?.remove();
+    }
+    const script = document.createElement("script");
+    script.id = "midtrans-snap";
+    script.src = SNAP_SRC;
+    if (MIDTRANS_CLIENT_KEY) script.setAttribute("data-client-key", MIDTRANS_CLIENT_KEY);
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Gagal memuat gateway pembayaran"));
+    document.head.appendChild(script);
+  });
+}
 
 const STATUS_BOOKING: Record<string, { label: string; className: string }> = {
   menunggu:     { label: "Menunggu",     className: "bg-amber-100 text-amber-800 border border-amber-200" },
@@ -543,6 +566,7 @@ export default function Profil() {
   const [isTerimaPesanan, setIsTerimaPesanan] = useState(false);
   const [cancelDialog, setCancelDialog] = useState<{ booking: BookingRow; alasan: string } | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [snapLoading, setSnapLoading] = useState(false);
   const [testimoniDialog, setTestimoniDialog] = useState<TestimoniDialogState | null>(null);
   const [isSubmittingTestimoni, setIsSubmittingTestimoni] = useState(false);
   const [selectedTestimoniDetail, setSelectedTestimoniDetail] = useState<TestimoniRow | null>(null);
@@ -705,6 +729,151 @@ export default function Profil() {
     setIsUploading(false);
     await refreshProfile();
     toast({ title: "Foto profil diperbarui" });
+  };
+
+  const payPesanan = async (p: PesananRow) => {
+    if (!supabase) return;
+    setSnapLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      let snapToken = p.midtransSnapToken;
+
+      if (!snapToken) {
+        const res = await fetch(`/api/pesanan/${p.kode_pesanan ?? p.kodePesanan}/payment-token`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          snapToken = data.snapToken;
+        }
+      }
+
+      if (!snapToken || !MIDTRANS_CLIENT_KEY) {
+        toast({ title: "Pembayaran tidak tersedia", description: "Hubungi admin untuk konfirmasi pembayaran.", variant: "destructive" });
+        return;
+      }
+
+      await loadSnapScript();
+      await new Promise((r) => setTimeout(r, 80));
+
+      const kodePesanan = p.kodePesanan || p.kode_pesanan;
+      const verifyPayment = async () => {
+        try {
+          const res = await fetch("/api/pesanan/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+            body: JSON.stringify({ kodePesanan }),
+          });
+          if (res.ok) {
+            const updated = await res.json();
+            setPesanan((prev) => prev.map((x) => x.id === p.id ? {
+              ...x,
+              statusPembayaran: updated.statusPembayaran,
+              status_pembayaran: updated.statusPembayaran,
+            } : x));
+            setSelectedPesanan((prev) => prev?.id === p.id ? {
+              ...prev,
+              statusPembayaran: updated.statusPembayaran,
+              status_pembayaran: updated.statusPembayaran,
+            } : prev);
+          }
+        } catch { /* ignore */ }
+      };
+
+      (window as any).snap.pay(snapToken, {
+        onSuccess: async () => {
+          await verifyPayment();
+          toast({ title: "Pembayaran berhasil! 🎉", description: `Kode pesanan: ${kodePesanan}` });
+        },
+        onPending: async () => {
+          await verifyPayment();
+          toast({ title: "Pembayaran tertunda", description: "Selesaikan pembayaran sesuai instruksi." });
+        },
+        onError: () => {
+          toast({ title: "Pembayaran gagal", description: "Coba lagi atau hubungi admin.", variant: "destructive" });
+        },
+        onClose: () => {},
+      });
+    } catch (err: any) {
+      toast({ title: "Gagal membuka pembayaran", description: err.message, variant: "destructive" });
+    } finally {
+      setSnapLoading(false);
+    }
+  };
+
+  const payBooking = async (b: BookingRow) => {
+    if (!supabase) return;
+    setSnapLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      const res = await fetch(`/api/booking/${b.id}/payment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        if (!MIDTRANS_CLIENT_KEY) {
+          toast({ title: "Pembayaran tidak tersedia", description: "Hubungi admin untuk konfirmasi pembayaran." });
+          return;
+        }
+        throw new Error(err.error ?? "Gagal membuat token pembayaran");
+      }
+
+      const data = await res.json();
+      const snapToken = data.snapToken;
+
+      if (!snapToken || !MIDTRANS_CLIENT_KEY) {
+        toast({ title: "Pembayaran tidak tersedia", description: "Hubungi admin untuk konfirmasi pembayaran." });
+        return;
+      }
+
+      await loadSnapScript();
+      await new Promise((r) => setTimeout(r, 80));
+
+      const verifyBookingPayment = async () => {
+        try {
+          const vRes = await fetch(`/api/booking/${b.id}/verify-payment`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          });
+          if (vRes.ok) {
+            const updated = await vRes.json();
+            setBooking((prev) => prev.map((x) => x.id === b.id ? {
+              ...x,
+              status_pembayaran: updated.statusPembayaran,
+            } : x));
+            setSelectedBooking((prev) => prev?.id === b.id ? {
+              ...prev,
+              status_pembayaran: updated.statusPembayaran,
+            } : prev);
+          }
+        } catch { /* ignore */ }
+      };
+
+      (window as any).snap.pay(snapToken, {
+        onSuccess: async () => {
+          await verifyBookingPayment();
+          toast({ title: "Pembayaran berhasil! 🎉", description: `Booking: ${b.kode_booking}` });
+        },
+        onPending: async () => {
+          await verifyBookingPayment();
+          toast({ title: "Pembayaran tertunda", description: "Selesaikan pembayaran sesuai instruksi." });
+        },
+        onError: () => {
+          toast({ title: "Pembayaran gagal", description: "Coba lagi atau hubungi admin.", variant: "destructive" });
+        },
+        onClose: () => {},
+      });
+    } catch (err: any) {
+      toast({ title: "Gagal membuka pembayaran", description: err.message, variant: "destructive" });
+    } finally {
+      setSnapLoading(false);
+    }
   };
 
   const cancelBooking = async () => {
@@ -1288,6 +1457,17 @@ export default function Profil() {
               )}
 
               <div className="flex flex-col gap-2 pt-1">
+                {(selectedPesanan.status_pembayaran === "belum_bayar" || selectedPesanan.statusPembayaran === "belum_bayar") &&
+                  selectedPesanan.status !== "dibatalkan" && (
+                  <Button
+                    className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                    disabled={snapLoading}
+                    onClick={() => payPesanan(selectedPesanan)}
+                  >
+                    {snapLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                    Bayar Sekarang
+                  </Button>
+                )}
                 <Button
                   className="w-full gap-2"
                   onClick={() => printInvoicePesanan(selectedPesanan)}
@@ -1483,6 +1663,16 @@ export default function Profil() {
               )}
 
               <div className="flex flex-col gap-2 pt-1">
+                {selectedBooking.status_pembayaran === "belum_bayar" && selectedBooking.status !== "dibatalkan" && (
+                  <Button
+                    className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                    disabled={snapLoading}
+                    onClick={() => payBooking(selectedBooking)}
+                  >
+                    {snapLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                    Bayar Sekarang
+                  </Button>
+                )}
                 <Button
                   className="w-full gap-2"
                   onClick={() => printInvoice(selectedBooking)}

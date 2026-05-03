@@ -233,30 +233,30 @@ function InboxTab() {
                   <Skeleton className="h-4 w-24" />
                 </div>
               ) : msgs.map((m) => (
-                <div key={m.id} className={`flex gap-2 ${m.pengirim === "user" ? "justify-end" : "justify-start"}`}>
+                <div key={m.id} className={`flex gap-2 ${m.pengirim === "admin" ? "justify-end" : "justify-start"}`}>
                   {m.pengirim === "bot" && (
                     <div className="h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
                       <Bot className="h-3.5 w-3.5" />
                     </div>
                   )}
-                  {m.pengirim === "admin" && (
-                    <div className="h-6 w-6 rounded-full bg-emerald-500/10 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5">
-                      <ShieldCheck className="h-3.5 w-3.5" />
+                  {m.pengirim === "user" && (
+                    <div className="h-6 w-6 rounded-full bg-muted border flex items-center justify-center shrink-0 mt-0.5">
+                      <User className="h-3.5 w-3.5 text-muted-foreground" />
                     </div>
                   )}
                   <div className={`max-w-[78%] rounded-2xl px-3 py-2 text-sm ${
-                    m.pengirim === "user" ? "bg-foreground text-background"
-                    : m.pengirim === "admin" ? "bg-emerald-500/10 border border-emerald-500/20"
-                    : "bg-muted"
+                    m.pengirim === "admin" ? "bg-emerald-600 text-white"
+                    : m.pengirim === "user" ? "bg-muted border border-border"
+                    : "bg-primary/10 border border-primary/20"
                   }`}>
                     <p className="whitespace-pre-wrap">{m.pesan}</p>
-                    <p className={`text-[10px] mt-0.5 ${m.pengirim === "user" ? "text-background/50" : "text-muted-foreground"}`}>
+                    <p className={`text-[10px] mt-0.5 ${m.pengirim === "admin" ? "text-white/60" : "text-muted-foreground"}`}>
                       {new Date(m.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
                     </p>
                   </div>
-                  {m.pengirim === "user" && (
-                    <div className="h-6 w-6 rounded-full bg-foreground text-background flex items-center justify-center shrink-0 mt-0.5">
-                      <User className="h-3.5 w-3.5" />
+                  {m.pengirim === "admin" && (
+                    <div className="h-6 w-6 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+                      <ShieldCheck className="h-3.5 w-3.5" />
                     </div>
                   )}
                 </div>

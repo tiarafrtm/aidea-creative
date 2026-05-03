@@ -4,6 +4,7 @@ import { Camera, Menu, X, Instagram, Facebook, MapPin, Phone, User, LogOut, Layo
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
+import { useSiteSettings } from "@/lib/settings";
 
 
 function BrandLogo() {
@@ -28,6 +29,7 @@ function BrandLogo() {
 export function Layout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const { user, profile, signOut } = useAuth();
+  const { data: siteSettings } = useSiteSettings();
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -302,7 +304,18 @@ export function Layout({ children }: { children: ReactNode }) {
                 </li>
                 <li className="flex items-center gap-3">
                   <Phone size={18} className="text-primary shrink-0" />
-                  <span>+62 812-3456-7890</span>
+                  {siteSettings?.contactWhatsapp ? (
+                    <a
+                      href={`https://wa.me/${siteSettings.contactWhatsapp.replace(/\D/g, "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:text-primary transition-colors"
+                    >
+                      +{siteSettings.contactWhatsapp.replace(/\D/g, "").replace(/^0/, "62")}
+                    </a>
+                  ) : (
+                    <span>+62 812-3456-7890</span>
+                  )}
                 </li>
               </ul>
             </div>

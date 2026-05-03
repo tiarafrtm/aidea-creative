@@ -83,9 +83,22 @@ const THEMES: Theme[] = [
     footerText: "#FAF0E6",
     dot: "bg-amber-900",
   },
+  {
+    id: "aidea",
+    name: "AideaCreative",
+    stripBg: "#FFFFFF",
+    headerBg: "#1d4ed8",
+    headerText: "#FFFFFF",
+    borderColor: "#1d4ed8",
+    footerBg: "#1d4ed8",
+    footerText: "#FFFFFF",
+    dot: "bg-blue-600",
+  },
 ];
 
 const TOTAL_SHOTS = 4;
+
+const EMOJI_PALETTE = ["⭐", "💖", "🌸", "✨", "🎀", "🌟", "💫", "🎊", "🌈", "🦋", "🌺", "💎", "🎵", "🤍", "🎭", "🌙", "🥳", "😍", "🔥", "💐"];
 
 // Capture size (used by captureCanvas)
 const PHOTO_W = 360;
@@ -221,6 +234,7 @@ const FRAME_DRAWERS: Record<string, FrameDrawer> = {
   y2k:    drawSparkle,
   sunset: drawSun,
   mocha:  drawDiamond,
+  aidea:  drawSparkle,
 };
 
 // Fixed scatter positions [xFrac(0=outer,1=inner), yFrac(0=top,1=bottom), sizeMult]
@@ -337,20 +351,43 @@ function generateStrip(photos: string[], theme: Theme): Promise<string> {
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
 
-      ctx.fillStyle = theme.footerText;
-      ctx.font = "bold 15px Arial";
-      ctx.fillText("AideaCreative Studio Foto", SW / 2, fy + 22);
+      const dateText = new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" });
 
-      ctx.font = "10.5px Arial";
-      ctx.fillStyle = hexToRgba(theme.footerText, 0.72);
-      ctx.fillText("Web Photobooth  •  Pringsewu, Lampung", SW / 2, fy + 40);
+      // Try to load logo image for watermark
+      const logoImg = new Image();
+      const logoLoaded = await new Promise<boolean>((res2) => {
+        logoImg.onload = () => res2(true);
+        logoImg.onerror = () => res2(false);
+        logoImg.src = "/images/logo.png";
+      });
 
-      ctx.font = "9.5px Arial";
-      ctx.fillStyle = hexToRgba(theme.footerText, 0.50);
-      ctx.fillText(
-        new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" }),
-        SW / 2, fy + 57
-      );
+      if (logoLoaded && logoImg.naturalWidth > 0) {
+        const logoH = 26;
+        const logoW = Math.round(logoImg.naturalWidth * (logoH / logoImg.naturalHeight));
+        ctx.globalAlpha = 0.92;
+        ctx.drawImage(logoImg, (SW - logoW) / 2, fy + 7, logoW, logoH);
+        ctx.globalAlpha = 1;
+
+        ctx.font = "10px Arial";
+        ctx.fillStyle = hexToRgba(theme.footerText, 0.70);
+        ctx.fillText("Web Photobooth  •  Pringsewu, Lampung", SW / 2, fy + 44);
+
+        ctx.font = "9px Arial";
+        ctx.fillStyle = hexToRgba(theme.footerText, 0.48);
+        ctx.fillText(dateText, SW / 2, fy + 58);
+      } else {
+        ctx.fillStyle = theme.footerText;
+        ctx.font = "bold 15px Arial";
+        ctx.fillText("AideaCreative Studio Foto", SW / 2, fy + 22);
+
+        ctx.font = "10.5px Arial";
+        ctx.fillStyle = hexToRgba(theme.footerText, 0.72);
+        ctx.fillText("Web Photobooth  •  Pringsewu, Lampung", SW / 2, fy + 40);
+
+        ctx.font = "9.5px Arial";
+        ctx.fillStyle = hexToRgba(theme.footerText, 0.50);
+        ctx.fillText(dateText, SW / 2, fy + 57);
+      }
 
       resolve(canvas.toDataURL("image/png"));
     };
@@ -369,13 +406,40 @@ export default function Photobooth() {
   const [stripLoading, setStripLoading] = useState(false);
   const [mirror, setMirror] = useState(true);
   const [camError, setCamError] = useState<string | null>(null);
+  const [stickers, setStickers] = useState<{ id: string; emoji: string; x: number; y: number }[]>([]);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const captureCanvasRef = useRef<HTMLCanvasElement>(null);
+  const stripRef = useRef<HTMLDivElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const photosRef = useRef<string[]>([]);
   photosRef.current = photos;
+
+  const addSticker = (emoji: string) => {
+    setStickers((prev) => [...prev, {
+      id: Math.random().toString(36).slice(2),
+      emoji,
+      x: 0.15 + Math.random() * 0.70,
+      y: 0.05 + Math.random() * 0.88,
+    }]);
+  };
+
+  const handleStickerMouseDown = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    setDraggingId(id);
+  };
+
+  const handleStripMouseMove = (e: React.MouseEvent) => {
+    if (!draggingId || !stripRef.current) return;
+    const rect = stripRef.current.getBoundingClientRect();
+    const x = Math.max(0.02, Math.min(0.98, (e.clientX - rect.left) / rect.width));
+    const y = Math.max(0.02, Math.min(0.98, (e.clientY - rect.top) / rect.height));
+    setStickers((prev) => prev.map((s) => s.id === draggingId ? { ...s, x, y } : s));
+  };
+
+  const handleStripMouseUp = () => setDraggingId(null);
 
   // ── Camera management ──
   const stopCamera = useCallback(() => {
@@ -489,15 +553,38 @@ export default function Photobooth() {
   const retake = useCallback(async () => {
     setPhotos([]);
     setStripUrl(null);
+    setStickers([]);
     setShotIdx(0);
     setStep("preview");
     await startCamera();
   }, [startCamera]);
 
-  const downloadStrip = () => {
+  const downloadStrip = async () => {
     if (!stripUrl) return;
+    if (stickers.length === 0) {
+      const a = document.createElement("a");
+      a.href = stripUrl;
+      a.download = `photobooth-${theme.id}-${Date.now()}.png`;
+      a.click();
+      return;
+    }
+    const img = new Image();
+    img.src = stripUrl;
+    await new Promise<void>((res) => { img.onload = () => res(); });
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext("2d")!;
+    ctx.drawImage(img, 0, 0);
+    const fontSize = Math.round(img.naturalWidth * 0.07);
+    ctx.font = `${fontSize}px serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (const s of stickers) {
+      ctx.fillText(s.emoji, s.x * img.naturalWidth, s.y * img.naturalHeight);
+    }
     const a = document.createElement("a");
-    a.href = stripUrl;
+    a.href = canvas.toDataURL("image/png");
     a.download = `photobooth-${theme.id}-${Date.now()}.png`;
     a.click();
   };
@@ -805,7 +892,7 @@ export default function Photobooth() {
             </div>
 
             {/* Right: strip preview */}
-            <div className="lg:w-[220px] shrink-0 sticky top-24">
+            <div className="lg:w-[300px] shrink-0 sticky top-24 space-y-3">
               <div className="bg-background rounded-2xl border border-border p-4 shadow-sm">
                 <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">
                   Preview Strip
@@ -819,17 +906,73 @@ export default function Photobooth() {
                   </div>
                 ) : stripUrl ? (
                   <div
-                    className="rounded-xl overflow-hidden shadow-md"
-                    style={{ border: `3px solid ${theme.borderColor}` }}
+                    ref={stripRef}
+                    className="rounded-xl overflow-hidden shadow-md relative select-none"
+                    style={{ border: `3px solid ${theme.borderColor}`, cursor: draggingId ? "grabbing" : "default" }}
+                    onMouseMove={handleStripMouseMove}
+                    onMouseUp={handleStripMouseUp}
+                    onMouseLeave={handleStripMouseUp}
                   >
                     <img
                       src={stripUrl}
                       alt="photo strip preview"
-                      className="block w-full"
+                      className="block w-full pointer-events-none"
+                      draggable={false}
                     />
+                    {stickers.map((s) => (
+                      <div
+                        key={s.id}
+                        className="absolute text-2xl leading-none hover:scale-110 transition-transform"
+                        style={{
+                          left: `${s.x * 100}%`,
+                          top: `${s.y * 100}%`,
+                          transform: "translate(-50%, -50%)",
+                          cursor: "grab",
+                          userSelect: "none",
+                          filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.4))",
+                        }}
+                        onMouseDown={(e) => handleStickerMouseDown(e, s.id)}
+                        onDoubleClick={() => setStickers((prev) => prev.filter((x) => x.id !== s.id))}
+                        title="Geser untuk pindahkan · Klik 2× untuk hapus"
+                      >
+                        {s.emoji}
+                      </div>
+                    ))}
                   </div>
                 ) : null}
               </div>
+
+              {/* Emoji sticker palette */}
+              {stripUrl && !stripLoading && (
+                <div className="bg-background rounded-2xl border border-border p-4 shadow-sm">
+                  <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">
+                    Tambah Stiker
+                  </p>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {EMOJI_PALETTE.map((emoji) => (
+                      <button
+                        key={emoji}
+                        onClick={() => addSticker(emoji)}
+                        className="text-xl h-9 w-full rounded-lg hover:bg-muted transition-colors flex items-center justify-center"
+                        title={`Tambah ${emoji}`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                  {stickers.length > 0 && (
+                    <div className="mt-2 flex items-center justify-between">
+                      <p className="text-[10px] text-muted-foreground">{stickers.length} stiker · geser untuk pindah · klik 2× hapus</p>
+                      <button
+                        onClick={() => setStickers([])}
+                        className="text-[10px] text-destructive hover:underline"
+                      >
+                        Hapus semua
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </motion.div>
         )}
