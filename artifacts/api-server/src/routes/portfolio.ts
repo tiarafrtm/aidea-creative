@@ -50,6 +50,29 @@ router.post("/portfolio", async (req, res) => {
   }
 });
 
+router.put("/portfolio/:id", async (req, res) => {
+  try {
+    const body = req.body;
+    const [row] = await db
+      .update(portfolioTable)
+      .set({
+        judul: body.judul,
+        deskripsi: body.deskripsi ?? null,
+        kategori: body.kategori,
+        gambarUrl: body.gambarUrl ?? [],
+        tags: body.tags ?? [],
+        isFeatured: body.isFeatured ?? false,
+      })
+      .where(eq(portfolioTable.id, req.params.id))
+      .returning();
+    if (!row) return res.status(404).json({ error: "Not found" });
+    res.json(formatPortfolio(row));
+  } catch (err) {
+    req.log.error({ err }, "Failed to update portfolio");
+    res.status(400).json({ error: "Bad request" });
+  }
+});
+
 router.delete("/portfolio/:id", async (req, res) => {
   try {
     await db.delete(portfolioTable).where(eq(portfolioTable.id, req.params.id));
