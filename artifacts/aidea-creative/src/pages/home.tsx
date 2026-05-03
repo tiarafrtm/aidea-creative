@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -124,25 +124,25 @@ export default function Home() {
   const heroY = useTransform(heroProgress, [0, 1], [0, 120]);
   const heroFade = useTransform(heroProgress, [0, 0.7], [1, 0]);
 
-  const promoScrollRef = useRef<HTMLDivElement>(null);
+  const [promoActive, setPromoActive] = useState(0);
+  const promoHovered = useRef(false);
+  const promoTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const promoNext = useCallback(() => {
+    setPromoActive((prev) => (prev + 1) % Math.max(promoBanners.length, 1));
+  }, [promoBanners.length]);
+
+  const promoPrev = useCallback(() => {
+    setPromoActive((prev) => (prev - 1 + Math.max(promoBanners.length, 1)) % Math.max(promoBanners.length, 1));
+  }, [promoBanners.length]);
 
   useEffect(() => {
-    const el = promoScrollRef.current;
-    if (!el) return;
-    const onWheel = (e: WheelEvent) => {
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-      e.preventDefault();
-      el.scrollLeft += e.deltaY;
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, []);
-
-  const scrollPromo = (dir: "left" | "right") => {
-    const el = promoScrollRef.current;
-    if (!el) return;
-    el.scrollBy({ left: dir === "left" ? -340 : 340, behavior: "smooth" });
-  };
+    if (promoBanners.length <= 1) return;
+    promoTimer.current = setInterval(() => {
+      if (!promoHovered.current) setPromoActive((p) => (p + 1) % promoBanners.length);
+    }, 4000);
+    return () => { if (promoTimer.current) clearInterval(promoTimer.current); };
+  }, [promoBanners.length]);
 
   return (
     <div className="w-full overflow-hidden">
@@ -260,85 +260,147 @@ export default function Home() {
         </div>
       </section>
 
-      {/* PROMO BANNER (manual carousel) */}
-      <section className="relative py-16 bg-white">
+      {/* PROMO BANNER — auto-sliding center-focus carousel */}
+      <section className="relative py-16 bg-white overflow-hidden">
         <div className="container mx-auto px-4 mb-8">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="flex items-end justify-between gap-4"
           >
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-3 py-1 text-xs font-bold mb-3">
-                <Tag className="h-3.5 w-3.5" /> PROMO BERJALAN
-              </div>
-              <h2 className="text-3xl md:text-5xl font-bold tracking-tight">Hemat sekarang.</h2>
+            <div className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-3 py-1 text-xs font-bold mb-3">
+              <Tag className="h-3.5 w-3.5" /> PROMO BERJALAN
             </div>
-            <div className="flex items-center gap-2">
-              {promoBanners.length > 1 && (
-                <>
-                  <button
-                    onClick={() => scrollPromo("left")}
-                    className="h-9 w-9 rounded-full border border-border bg-background flex items-center justify-center hover:bg-muted transition"
-                    aria-label="Sebelumnya"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => scrollPromo("right")}
-                    className="h-9 w-9 rounded-full border border-border bg-background flex items-center justify-center hover:bg-muted transition"
-                    aria-label="Berikutnya"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </>
-              )}
-            </div>
+            <h2 className="text-3xl md:text-5xl font-bold tracking-tight">Hemat sekarang.</h2>
           </motion.div>
         </div>
 
         {promoBanners.length > 0 ? (
-          <div className="container mx-auto px-4">
+          <>
+            {/* Carousel stage */}
             <div
-              ref={promoScrollRef}
-              className="flex gap-5 overflow-x-auto snap-x snap-mandatory pb-2 scrollbar-hide"
-              style={{ overflowY: "hidden", touchAction: "pan-x" }}
+              className="relative flex items-center justify-center"
+              style={{ height: 400 }}
+              onMouseEnter={() => { promoHovered.current = true; }}
+              onMouseLeave={() => { promoHovered.current = false; }}
             >
-              {promoBanners.map((p) => (
-                <motion.div
-                  key={p.id}
-                  whileHover={{ y: -4 }}
-                  className="snap-start flex-none w-[300px] md:w-[400px] rounded-3xl overflow-hidden bg-card border border-border shadow-lg"
+              {/* Prev arrow */}
+              {promoBanners.length > 1 && (
+                <button
+                  onClick={promoPrev}
+                  className="absolute left-4 md:left-8 z-20 h-9 w-9 rounded-full border border-border bg-background/90 flex items-center justify-center hover:bg-muted transition shadow"
+                  aria-label="Sebelumnya"
                 >
-                  <div className="relative h-44 md:h-52 bg-muted overflow-hidden">
-                    {p.gambarUrl ? (
-                      <img src={p.gambarUrl} alt={p.judul} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-primary/30 to-amber-200 flex items-center justify-center">
-                        <Sparkles className="h-12 w-12 text-white" />
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+              )}
+
+              {/* Cards */}
+              {(() => {
+                const n = promoBanners.length;
+                const slots =
+                  n === 1
+                    ? [{ idx: 0, slot: "center" }]
+                    : n === 2
+                    ? [
+                        { idx: promoActive, slot: "center" },
+                        { idx: (promoActive + 1) % n, slot: "right" },
+                      ]
+                    : [
+                        { idx: (promoActive - 1 + n) % n, slot: "left" },
+                        { idx: promoActive, slot: "center" },
+                        { idx: (promoActive + 1) % n, slot: "right" },
+                      ];
+
+                const styleMap: Record<string, React.CSSProperties> = {
+                  left: { transform: "translateX(-52%) scale(0.8)", opacity: 0.5, zIndex: 1, filter: "blur(1.5px)", cursor: "pointer" },
+                  center: { transform: "translateX(0) scale(1)", opacity: 1, zIndex: 10, filter: "none", cursor: "default" },
+                  right: { transform: "translateX(52%) scale(0.8)", opacity: 0.5, zIndex: 1, filter: "blur(1.5px)", cursor: "pointer" },
+                };
+
+                return slots.map(({ idx, slot }) => {
+                  const p = promoBanners[idx];
+                  return (
+                    <div
+                      key={p.id + slot}
+                      onClick={() => slot !== "center" && setPromoActive(idx)}
+                      style={{
+                        position: "absolute",
+                        width: "clamp(260px, 36vw, 460px)",
+                        transition: "transform 0.5s cubic-bezier(0.4,0,0.2,1), opacity 0.5s ease, filter 0.5s ease",
+                        ...styleMap[slot],
+                      }}
+                    >
+                      <div className="rounded-3xl overflow-hidden bg-card border border-border shadow-xl group">
+                        <div className="relative overflow-hidden bg-muted" style={{ aspectRatio: "16/9" }}>
+                          {p.gambarUrl ? (
+                            <img
+                              src={p.gambarUrl}
+                              alt={p.judul}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-primary/30 to-amber-200 flex items-center justify-center">
+                              <Sparkles className="h-12 w-12 text-white" />
+                            </div>
+                          )}
+                          {p.badge && (
+                            <Badge className="absolute top-4 left-4 bg-primary text-primary-foreground rounded-full shadow">
+                              {p.badge}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="p-5">
+                          <h3 className="font-bold text-lg mb-1 line-clamp-1">{p.judul}</h3>
+                          <p className="text-sm text-muted-foreground line-clamp-2">{p.deskripsi}</p>
+                          {p.tanggalBerakhir && (
+                            <p className="text-[11px] text-muted-foreground/60 mt-2">
+                              s/d {new Date(p.tanggalBerakhir).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                    )}
-                    {p.badge && (
-                      <Badge className="absolute top-4 left-4 bg-primary text-primary-foreground rounded-full">
-                        {p.badge}
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="p-5">
-                    <h3 className="font-bold text-lg mb-1 line-clamp-1">{p.judul}</h3>
-                    <p className="text-sm text-muted-foreground line-clamp-2">{p.deskripsi}</p>
-                    {p.tanggalBerakhir && (
-                      <p className="text-[11px] text-muted-foreground/60 mt-2">
-                        s/d {new Date(p.tanggalBerakhir).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
-                      </p>
-                    )}
-                  </div>
-                </motion.div>
-              ))}
+                    </div>
+                  );
+                });
+              })()}
+
+              {/* Next arrow */}
+              {promoBanners.length > 1 && (
+                <button
+                  onClick={promoNext}
+                  className="absolute right-4 md:right-8 z-20 h-9 w-9 rounded-full border border-border bg-background/90 flex items-center justify-center hover:bg-muted transition shadow"
+                  aria-label="Berikutnya"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              )}
             </div>
-          </div>
+
+            {/* Dot indicators */}
+            {promoBanners.length > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-6">
+                {promoBanners.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setPromoActive(i)}
+                    aria-label={`Promo ${i + 1}`}
+                    style={{
+                      transition: "all 0.35s ease",
+                      width: i === promoActive ? 24 : 8,
+                      height: 8,
+                      borderRadius: 999,
+                      background: i === promoActive ? "hsl(var(--primary))" : "hsl(var(--foreground)/0.2)",
+                      border: "none",
+                      padding: 0,
+                      cursor: "pointer",
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         ) : (
           <div className="container mx-auto px-4">
             <Card className="rounded-3xl border-dashed border-2 border-primary/30 bg-primary/5">
