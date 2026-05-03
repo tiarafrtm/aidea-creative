@@ -130,7 +130,7 @@ export default function Home() {
   const promoTouchStartX = useRef<number | null>(null);
 
   // Responsive breakpoint tracking
-  const [screenW, setScreenW] = useState(() => typeof window !== "undefined" ? window.innerWidth : 1200);
+  const [screenW, setScreenW] = useState(() => (typeof window !== "undefined" ? window.innerWidth : 1200));
   useEffect(() => {
     const handle = () => setScreenW(window.innerWidth);
     window.addEventListener("resize", handle);
@@ -358,7 +358,7 @@ export default function Home() {
             ) : (
               /* ── TABLET & DESKTOP: 3-card or 5-card center-focus ── */
               <div
-                className="relative w-full"
+                className="relative w-full max-w-7xl mx-auto"
                 style={{ height: isTablet ? 420 : 480 }}
                 onMouseEnter={() => { promoHovered.current = true; }}
                 onMouseLeave={() => { promoHovered.current = false; }}
@@ -372,16 +372,16 @@ export default function Home() {
                     // Tablet: 3-card layout
                     type SlotDef = [number, number, number, number];
                     const desktopDefs: Record<string, SlotDef> = {
-                      "far-left":  [-520, 0.65, 0.72, 1],
-                      "left":      [-270, 0.83, 0.90, 2],
+                      "far-left":  [-760, 0.66, 0.70, 1],
+                      "left":      [-390, 0.84, 0.90, 2],
                       "center":    [   0, 1.00, 1.00, 10],
-                      "right":     [ 270, 0.83, 0.90, 2],
-                      "far-right": [ 520, 0.65, 0.72, 1],
+                      "right":     [ 390, 0.84, 0.90, 2],
+                      "far-right": [ 760, 0.66, 0.70, 1],
                     };
                     const tabletDefs: Record<string, SlotDef> = {
-                      "left":   [-210, 0.80, 0.88, 2],
+                      "left":   [-280, 0.82, 0.88, 2],
                       "center": [   0, 1.00, 1.00, 10],
-                      "right":  [ 210, 0.80, 0.88, 2],
+                      "right":  [ 280, 0.82, 0.88, 2],
                     };
                     const slotDefs = isTablet ? tabletDefs : desktopDefs;
 
@@ -425,7 +425,7 @@ export default function Home() {
                       ];
                     };
 
-                    const cardW = isTablet ? "clamp(220px, 32vw, 360px)" : "clamp(220px, 24vw, 340px)";
+                    const cardW = isTablet ? "clamp(240px, 38vw, 390px)" : "clamp(250px, 18vw, 300px)";
 
                     return buildSlots().map(({ idx, slot }) => {
                       const p = promoBanners[idx];
@@ -449,11 +449,15 @@ export default function Home() {
                             transformOrigin: "center center",
                           }}
                         >
-                          <div className={`rounded-2xl overflow-hidden bg-card border ${
-                            isCenter ? "border-border/80 shadow-[0_10px_48px_rgba(0,0,0,0.16)]"
-                              : isAdj ? "border-border/50 shadow-lg"
-                              : "border-border/30 shadow-md"
-                          } group`}>
+                          <div
+                            className={`rounded-[1.4rem] overflow-hidden bg-card border ${
+                              isCenter
+                                ? "border-border/80 shadow-[0_10px_48px_rgba(0,0,0,0.16)]"
+                                : isAdj
+                                ? "border-border/50 shadow-lg"
+                                : "border-border/30 shadow-md"
+                            } group`}
+                          >
                             <div className="relative overflow-hidden bg-muted" style={{ aspectRatio: "4/3" }}>
                               {p.gambarUrl ? (
                                 <img src={p.gambarUrl} alt={p.judul} className={`w-full h-full object-cover transition-transform duration-500 ${isCenter ? "group-hover:scale-105" : ""}`} />
@@ -484,8 +488,8 @@ export default function Home() {
                   })()}
 
                   {/* Edge fade */}
-                  <div className="pointer-events-none absolute inset-y-0 left-0 w-16 z-20 bg-gradient-to-r from-white to-transparent" />
-                  <div className="pointer-events-none absolute inset-y-0 right-0 w-16 z-20 bg-gradient-to-l from-white to-transparent" />
+                  <div className="pointer-events-none absolute inset-y-0 left-0 w-6 z-20 bg-gradient-to-r from-white/90 to-transparent" />
+                  <div className="pointer-events-none absolute inset-y-0 right-0 w-6 z-20 bg-gradient-to-l from-white/90 to-transparent" />
                 </div>
 
                 {/* Arrows */}
