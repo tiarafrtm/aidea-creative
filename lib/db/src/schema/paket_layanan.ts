@@ -13,6 +13,7 @@ export const paketLayananTable = pgTable("paket_layanan", {
   durasiSesi: integer("durasi_sesi").notNull().default(60),
   jumlahFoto: integer("jumlah_foto").notNull().default(20),
   fasilitas: jsonb("fasilitas").$type<string[]>().notNull().default([]),
+  fotoUrl: text("foto_url"),
   isPopuler: boolean("is_populer").notNull().default(false),
   isAktif: boolean("is_aktif").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),

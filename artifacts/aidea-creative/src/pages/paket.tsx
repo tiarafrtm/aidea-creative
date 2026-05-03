@@ -110,7 +110,15 @@ export default function Paket() {
                     >
                       {/* Image area */}
                       <div className="relative h-44 bg-gradient-to-br from-muted to-muted/60 flex items-center justify-center overflow-hidden">
-                        <Camera className="text-muted-foreground/20" size={52} />
+                        {(paket as any).fotoUrl ? (
+                          <img
+                            src={(paket as any).fotoUrl}
+                            alt={paket.namaPaket}
+                            className="absolute inset-0 w-full h-full object-cover"
+                          />
+                        ) : (
+                          <Camera className="text-muted-foreground/20" size={52} />
+                        )}
 
                         {/* Category badge */}
                         <span className="absolute top-3 left-3 bg-background/90 backdrop-blur-sm text-foreground text-[11px] font-semibold px-2.5 py-1 rounded-full border border-border/60">

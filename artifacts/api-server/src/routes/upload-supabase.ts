@@ -53,9 +53,12 @@ async function ensureBucket(bucket: string): Promise<{ ok: boolean; error?: stri
 }
 
 if (supabaseAdmin) {
-  ensureBucket(DEFAULT_BUCKET).then((r) => {
-    if (!r.ok) logger.warn({ err: r.error }, `Gagal memastikan bucket "${DEFAULT_BUCKET}"`);
-    else logger.info(`Bucket Supabase "${DEFAULT_BUCKET}" siap dipakai.`);
+  const INIT_BUCKETS = [DEFAULT_BUCKET, "paket"];
+  INIT_BUCKETS.forEach((b) => {
+    ensureBucket(b).then((r) => {
+      if (!r.ok) logger.warn({ err: r.error }, `Gagal memastikan bucket "${b}"`);
+      else logger.info(`Bucket Supabase "${b}" siap dipakai.`);
+    });
   });
 }
 

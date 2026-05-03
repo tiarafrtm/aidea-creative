@@ -14,6 +14,7 @@ const formatPaket = (r: typeof paketLayananTable.$inferSelect) => ({
   durasiSesi: r.durasiSesi,
   jumlahFoto: r.jumlahFoto,
   fasilitas: Array.isArray(r.fasilitas) ? (r.fasilitas as string[]) : [],
+  fotoUrl: r.fotoUrl ?? null,
   isPopuler: r.isPopuler,
   isAktif: r.isAktif,
   createdAt: r.createdAt.toISOString(),
@@ -45,6 +46,7 @@ router.post("/paket", async (req, res) => {
         durasiSesi: body.durasiSesi ?? 60,
         jumlahFoto: body.jumlahFoto ?? 20,
         fasilitas: body.fasilitas ?? [],
+        fotoUrl: body.fotoUrl ?? null,
         isPopuler: body.isPopuler ?? false,
         isAktif: body.isAktif ?? true,
       })
@@ -83,6 +85,7 @@ router.put("/paket/:id", async (req, res) => {
         durasiSesi: body.durasiSesi,
         jumlahFoto: body.jumlahFoto,
         fasilitas: body.fasilitas,
+        fotoUrl: body.fotoUrl ?? null,
         isPopuler: body.isPopuler,
         isAktif: body.isAktif,
       })

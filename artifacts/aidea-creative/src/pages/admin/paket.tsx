@@ -5,7 +5,7 @@ import {
 } from "@workspace/api-client-react";
 import { adminFetch } from "@/lib/admin-api";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Sparkles, Loader2, GripVertical, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Sparkles, Loader2, GripVertical, X, ImageOff } from "lucide-react";
 import { AdminLayout } from "@/components/admin-layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { QueryError } from "@/components/query-error";
+import { SupabaseUploader } from "@/components/supabase-uploader";
 
 type PaketForm = {
   namaPaket: string;
@@ -28,6 +29,7 @@ type PaketForm = {
   durasiSesi: number | string;
   jumlahFoto: number | string;
   fasilitas: string[];
+  fotoUrl: string;
   isPopuler: boolean;
   isAktif: boolean;
   kategoriId: string;
@@ -40,6 +42,7 @@ const emptyForm: PaketForm = {
   durasiSesi: 60,
   jumlahFoto: 20,
   fasilitas: [],
+  fotoUrl: "",
   isPopuler: false,
   isAktif: true,
   kategoriId: "",
@@ -81,6 +84,7 @@ export default function AdminPaket() {
       durasiSesi: p.durasiSesi ?? 60,
       jumlahFoto: p.jumlahFoto ?? 20,
       fasilitas: Array.isArray(p.fasilitas) ? [...p.fasilitas] : [],
+      fotoUrl: p.fotoUrl ?? "",
       isPopuler: p.isPopuler ?? false,
       isAktif: p.isAktif ?? true,
       kategoriId: p.kategoriId ?? "",
@@ -112,6 +116,7 @@ export default function AdminPaket() {
       durasiSesi: Number(form.durasiSesi) || 60,
       jumlahFoto: Number(form.jumlahFoto) || 20,
       fasilitas: form.fasilitas,
+      fotoUrl: form.fotoUrl || null,
       isPopuler: form.isPopuler,
       isAktif: form.isAktif,
       kategoriId: form.kategoriId || null,
@@ -198,11 +203,11 @@ export default function AdminPaket() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-14">Foto</TableHead>
                   <TableHead>Nama Paket</TableHead>
                   <TableHead className="hidden md:table-cell">Kategori</TableHead>
                   <TableHead>Harga</TableHead>
                   <TableHead className="hidden sm:table-cell">Durasi</TableHead>
-                  <TableHead className="hidden lg:table-cell">Foto</TableHead>
                   <TableHead className="hidden md:table-cell">Status</TableHead>
                   <TableHead className="w-24 text-right">Aksi</TableHead>
                 </TableRow>
@@ -210,6 +215,15 @@ export default function AdminPaket() {
               <TableBody>
                 {items.map(p => (
                   <TableRow key={p.id}>
+                    <TableCell>
+                      <div className="h-10 w-10 rounded-md overflow-hidden bg-muted flex items-center justify-center shrink-0">
+                        {(p as any).fotoUrl ? (
+                          <img src={(p as any).fotoUrl} alt={p.namaPaket} className="h-full w-full object-cover" />
+                        ) : (
+                          <ImageOff className="h-4 w-4 text-muted-foreground/40" />
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <div className="font-medium">{p.namaPaket}</div>
                       {p.isPopuler && (
@@ -224,9 +238,6 @@ export default function AdminPaket() {
                     </TableCell>
                     <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
                       {p.durasiSesi} mnt
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">
-                      {p.jumlahFoto} foto
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
                       <Badge variant={p.isAktif ? "default" : "outline"}>
@@ -267,6 +278,15 @@ export default function AdminPaket() {
                 onChange={e => setForm(f => ({ ...f, namaPaket: e.target.value }))}
               />
             </div>
+
+            {/* Foto */}
+            <SupabaseUploader
+              value={form.fotoUrl}
+              onChange={url => setForm(f => ({ ...f, fotoUrl: url }))}
+              bucket="paket"
+              folder="cover"
+              label="Foto Paket"
+            />
 
             {/* Kategori */}
             <div className="space-y-1.5">
