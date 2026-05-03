@@ -155,16 +155,16 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AuthProvider>
+      <AuthProvider>
+        <TooltipProvider>
           <CartProvider>
             <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
               <Router />
             </WouterRouter>
           </CartProvider>
-        </AuthProvider>
-        <Toaster />
-      </TooltipProvider>
+          <Toaster />
+        </TooltipProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
