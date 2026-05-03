@@ -119,7 +119,7 @@ export default function Home() {
   const now = Date.now();
   const promoBanners = (Array.isArray(promoList) ? promoList : []).filter((p) => {
     if (!p.isAktif) return false;
-    if ((p as any).tanggalMulai && new Date((p as any).tanggalMulai).getTime() > now) return false;
+    if ((p as any).tampilCard === false) return false;
     if ((p as any).tanggalBerakhir && new Date((p as any).tanggalBerakhir).getTime() < now) return false;
     return true;
   });
@@ -490,52 +490,55 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── PAKET FAVORIT — connected to DB ── */}
-      <section className="py-20 bg-foreground text-background">
-        <div className="container mx-auto px-4">
+      {/* ── PAKET FAVORIT — horizontal scroll carousel ── */}
+      <section className="py-20 bg-[#0c1220] overflow-hidden">
+        <div className="container mx-auto px-4 mb-10">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="flex items-end justify-between mb-12"
+            className="flex items-end justify-between"
           >
-            <h2 className="text-4xl md:text-6xl font-bold tracking-tight">Paket favorit.</h2>
-            <Link href="/paket" className="text-sm font-semibold text-amber-300 hover:underline inline-flex items-center gap-1.5">
+            <div>
+              <p className="text-amber-400 text-xs font-bold uppercase tracking-widest mb-2">Paket Terpopuler</p>
+              <h2 className="text-4xl md:text-6xl font-bold tracking-tight text-white">Paket favorit.</h2>
+            </div>
+            <Link href="/paket" className="shrink-0 inline-flex items-center gap-1.5 text-sm font-semibold text-amber-400 hover:text-amber-300 transition-colors">
               Semua paket <ArrowRight className="h-4 w-4" />
             </Link>
           </motion.div>
+        </div>
 
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-            variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1 } } }}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
-          >
+        {/* Horizontal scroll track */}
+        <div className="relative">
+          <div className="flex gap-5 overflow-x-auto scrollbar-hide px-4 md:px-8 pb-4 snap-x snap-mandatory">
             {loadingPaket
               ? Array(4).fill(0).map((_, i) => (
-                  <Card key={i} className="overflow-hidden bg-white/5 border-white/10">
-                    <Skeleton className="h-56 w-full rounded-none" />
-                    <CardContent className="p-5">
-                      <Skeleton className="h-5 w-3/4 mb-2" />
-                      <Skeleton className="h-4 w-1/2" />
-                    </CardContent>
-                  </Card>
+                  <div key={i} className="shrink-0 w-[260px] sm:w-[280px] snap-start">
+                    <div className="rounded-2xl overflow-hidden bg-white/5 border border-white/10 animate-pulse">
+                      <div className="h-72 bg-white/10" />
+                      <div className="p-5 space-y-2">
+                        <div className="h-5 w-3/4 bg-white/10 rounded" />
+                        <div className="h-4 w-1/2 bg-white/10 rounded" />
+                      </div>
+                    </div>
+                  </div>
                 ))
               : popularPackages.length > 0
-              ? popularPackages.map((paket) => (
+              ? popularPackages.map((paket, idx) => (
                   <motion.div
                     key={paket.id}
-                    variants={{
-                      hidden: { opacity: 0, y: 40 },
-                      visible: { opacity: 1, y: 0, transition: { duration: 0.6 } },
-                    }}
-                    whileHover={{ y: -8 }}
+                    initial={{ opacity: 0, x: 40 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.5, delay: idx * 0.08 }}
+                    className="shrink-0 w-[260px] sm:w-[280px] snap-start"
                   >
                     <Link href={`/booking?paket=${paket.id}`}>
-                      <Card className="overflow-hidden bg-white/5 border-white/10 hover:border-amber-300/40 transition-colors cursor-pointer h-full group">
-                        <div className="aspect-[4/5] relative overflow-hidden bg-gradient-to-br from-primary/30 to-amber-200/20">
+                      <div className="group rounded-2xl overflow-hidden border border-white/10 hover:border-amber-400/50 bg-white/5 hover:bg-white/8 transition-all duration-300 cursor-pointer h-full">
+                        {/* Photo area */}
+                        <div className="relative h-72 overflow-hidden bg-gradient-to-br from-primary/40 via-blue-900/40 to-slate-900">
                           {(paket as any).fotoUrl ? (
                             <img
                               src={(paket as any).fotoUrl}
@@ -543,34 +546,67 @@ export default function Home() {
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Camera className="h-14 w-14 text-white/30 group-hover:scale-110 transition-transform duration-500" />
+                            <div className="w-full h-full flex flex-col items-center justify-center gap-3">
+                              <Camera className="h-12 w-12 text-white/20 group-hover:text-white/40 transition-colors duration-300" />
+                              <span className="text-white/20 text-xs font-medium group-hover:text-white/40 transition-colors">Foto studio</span>
                             </div>
                           )}
-                          <Badge className="absolute top-3 left-3 bg-amber-400 text-foreground rounded-full font-bold">
-                            ★ Populer
-                          </Badge>
-                          <div className="absolute bottom-3 right-3 bg-white/95 text-foreground rounded-full px-3 py-1 text-xs font-bold">
-                            {paket.durasiSesi}m · {paket.jumlahFoto}📸
+                          {/* Top gradient overlay */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                          {/* Populer badge */}
+                          <div className="absolute top-3 left-3 inline-flex items-center gap-1 bg-amber-400 text-[#0c1220] text-[11px] font-extrabold px-2.5 py-1 rounded-full">
+                            <Star className="h-3 w-3 fill-current" /> Populer
+                          </div>
+                          {/* Duration + photos chip */}
+                          <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-sm border border-white/10 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full">
+                            {paket.durasiSesi}m · {paket.jumlahFoto} foto
                           </div>
                         </div>
-                        <CardContent className="p-5">
-                          <h3 className="font-bold text-lg mb-1 line-clamp-1">{paket.namaPaket}</h3>
-                          <p className="text-amber-300 font-bold text-lg">
-                            Rp {paket.harga.toLocaleString("id-ID")}
-                          </p>
-                        </CardContent>
-                      </Card>
+                        {/* Info */}
+                        <div className="p-5">
+                          <h3 className="font-bold text-base text-white mb-0.5 line-clamp-1 group-hover:text-amber-100 transition-colors">
+                            {paket.namaPaket}
+                          </h3>
+                          {paket.deskripsi && (
+                            <p className="text-white/40 text-xs line-clamp-2 mb-3">{paket.deskripsi}</p>
+                          )}
+                          <div className="flex items-center justify-between mt-2">
+                            <p className="text-amber-400 font-extrabold text-lg leading-none">
+                              Rp {paket.harga.toLocaleString("id-ID")}
+                            </p>
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-white/40 group-hover:text-amber-400 transition-colors">
+                              Booking <ArrowUpRight className="h-3 w-3" />
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </Link>
                   </motion.div>
                 ))
               : (
-                <div className="col-span-4 text-center text-background/50 py-10">
+                <div className="w-full text-center text-white/30 py-16">
                   Belum ada paket populer.
                 </div>
               )
             }
-          </motion.div>
+
+            {/* "Lihat semua" card at end */}
+            {popularPackages.length > 0 && (
+              <div className="shrink-0 w-[200px] snap-start flex items-center justify-center">
+                <Link href="/paket">
+                  <div className="flex flex-col items-center gap-4 text-white/40 hover:text-amber-400 transition-colors cursor-pointer group">
+                    <div className="h-14 w-14 rounded-full border border-white/10 group-hover:border-amber-400/40 flex items-center justify-center transition-colors">
+                      <ArrowRight className="h-5 w-5" />
+                    </div>
+                    <span className="text-sm font-semibold">Semua paket</span>
+                  </div>
+                </Link>
+              </div>
+            )}
+          </div>
+          {/* Fade edges */}
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[#0c1220] to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-[#0c1220] to-transparent" />
         </div>
       </section>
 
