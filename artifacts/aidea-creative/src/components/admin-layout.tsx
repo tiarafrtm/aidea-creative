@@ -8,20 +8,45 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 
-const navItems = [
-  { href: "/dashboard", label: "Beranda", icon: LayoutDashboard },
-  { href: "/dashboard/booking", label: "Booking", icon: CalendarRange },
-  { href: "/dashboard/paket", label: "Paket Layanan", icon: Camera },
-  { href: "/dashboard/produk", label: "Produk", icon: Package },
-  { href: "/dashboard/pesanan", label: "Pesanan Toko", icon: ShoppingCart },
-  { href: "/dashboard/portfolio", label: "Portfolio", icon: ImageIcon },
-  { href: "/dashboard/jadwal", label: "Jadwal Studio", icon: Clock },
-  { href: "/dashboard/testimoni", label: "Testimoni", icon: Users },
-  { href: "/dashboard/promo", label: "Banner Promo", icon: Megaphone },
-  { href: "/dashboard/users", label: "Pengguna", icon: UserCog },
-  { href: "/dashboard/landing", label: "Landing Page", icon: Settings },
-  { href: "/dashboard/chat", label: "Chat AI & Inbox", icon: MessagesSquare },
-  { href: "/dashboard/laporan", label: "Laporan", icon: FileBarChart },
+const navGroups = [
+  {
+    label: null,
+    items: [
+      { href: "/dashboard", label: "Beranda", icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: "Operasional",
+    items: [
+      { href: "/dashboard/booking", label: "Booking", icon: CalendarRange },
+      { href: "/dashboard/jadwal", label: "Jadwal Studio", icon: Clock },
+      { href: "/dashboard/pesanan", label: "Pesanan Toko", icon: ShoppingCart },
+    ],
+  },
+  {
+    label: "Layanan & Konten",
+    items: [
+      { href: "/dashboard/paket", label: "Paket Layanan", icon: Camera },
+      { href: "/dashboard/produk", label: "Produk", icon: Package },
+      { href: "/dashboard/portfolio", label: "Portfolio", icon: ImageIcon },
+      { href: "/dashboard/promo", label: "Banner Promo", icon: Megaphone },
+    ],
+  },
+  {
+    label: "Komunitas",
+    items: [
+      { href: "/dashboard/testimoni", label: "Testimoni", icon: Users },
+      { href: "/dashboard/chat", label: "Chat AI & Inbox", icon: MessagesSquare },
+    ],
+  },
+  {
+    label: "Pengaturan",
+    items: [
+      { href: "/dashboard/landing", label: "Landing Page", icon: Settings },
+      { href: "/dashboard/users", label: "Pengguna", icon: UserCog },
+      { href: "/dashboard/laporan", label: "Laporan", icon: FileBarChart },
+    ],
+  },
 ];
 
 export function AdminLayout({ children, title, subtitle }: { children: ReactNode; title: string; subtitle?: string }) {
@@ -43,23 +68,34 @@ export function AdminLayout({ children, title, subtitle }: { children: ReactNode
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Control Center</p>
           </div>
         </div>
-        <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-          {navItems.map((it) => {
-            const Icon = it.icon;
-            const active = isActive(it.href);
-            return (
-              <Link key={it.href} href={it.href}>
-                <button
-                  onClick={() => setOpen(false)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                    active ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  }`}
-                >
-                  <Icon size={17} /> {it.label}
-                </button>
-              </Link>
-            );
-          })}
+        <nav className="flex-1 overflow-y-auto p-3 space-y-4">
+          {navGroups.map((group, gi) => (
+            <div key={gi}>
+              {group.label && (
+                <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+                  {group.label}
+                </p>
+              )}
+              <div className="space-y-0.5">
+                {group.items.map((it) => {
+                  const Icon = it.icon;
+                  const active = isActive(it.href);
+                  return (
+                    <Link key={it.href} href={it.href}>
+                      <button
+                        onClick={() => setOpen(false)}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                          active ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        }`}
+                      >
+                        <Icon size={17} /> {it.label}
+                      </button>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
         <div className="p-3 border-t border-border space-y-1">
           <div className="px-3 py-2 text-xs">
