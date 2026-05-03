@@ -127,6 +127,17 @@ export default function Home() {
   const [promoActive, setPromoActive] = useState(0);
   const promoHovered = useRef(false);
   const promoTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const promoTouchStartX = useRef<number | null>(null);
+
+  // Responsive breakpoint tracking
+  const [screenW, setScreenW] = useState(() => typeof window !== "undefined" ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handle = () => setScreenW(window.innerWidth);
+    window.addEventListener("resize", handle);
+    return () => window.removeEventListener("resize", handle);
+  }, []);
+  const isMobile = screenW < 640;
+  const isTablet = screenW >= 640 && screenW < 1024;
 
   const promoNext = useCallback(() => {
     setPromoActive((prev) => (prev + 1) % Math.max(promoBanners.length, 1));
@@ -278,168 +289,225 @@ export default function Home() {
 
         {promoBanners.length > 0 ? (
           <>
-            {/* Carousel stage — 5-card center-focus */}
-            <div
-              className="relative w-full"
-              style={{ height: 460 }}
-              onMouseEnter={() => { promoHovered.current = true; }}
-              onMouseLeave={() => { promoHovered.current = false; }}
-            >
-              {/* Cards track — overflow hidden so far cards peek cleanly */}
-              <div className="relative w-full h-full overflow-hidden">
-                {(() => {
-                  const n = promoBanners.length;
-
-                  // [xOffset px from center, scale, opacity, zIndex]
-                  // Center card is widest; offsets create even left-2 / right-2 spacing
-                  const slotDefs: Record<string, [number, number, number, number]> = {
-                    "far-left":  [-440, 0.64, 0.55, 1],
-                    "left":      [-230, 0.82, 0.85, 2],
-                    "center":    [   0, 1.00, 1.00, 10],
-                    "right":     [ 230, 0.82, 0.85, 2],
-                    "far-right": [ 440, 0.64, 0.55, 1],
-                  };
-
-                  type SlotKey = keyof typeof slotDefs;
-
-                  const buildSlots = (): { idx: number; slot: SlotKey }[] => {
-                    if (n === 1) return [{ idx: 0, slot: "center" }];
-                    if (n === 2) return [
-                      { idx: (promoActive - 1 + n) % n, slot: "left" },
-                      { idx: promoActive, slot: "center" },
-                    ];
-                    if (n === 3) return [
-                      { idx: (promoActive - 1 + n) % n, slot: "left" },
-                      { idx: promoActive, slot: "center" },
-                      { idx: (promoActive + 1) % n, slot: "right" },
-                    ];
-                    if (n === 4) return [
-                      { idx: (promoActive - 2 + n) % n, slot: "far-left" },
-                      { idx: (promoActive - 1 + n) % n, slot: "left" },
-                      { idx: promoActive, slot: "center" },
-                      { idx: (promoActive + 1) % n, slot: "right" },
-                    ];
-                    return [
-                      { idx: (promoActive - 2 + n) % n, slot: "far-left" },
-                      { idx: (promoActive - 1 + n) % n, slot: "left" },
-                      { idx: promoActive, slot: "center" },
-                      { idx: (promoActive + 1) % n, slot: "right" },
-                      { idx: (promoActive + 2) % n, slot: "far-right" },
-                    ];
-                  };
-
-                  return buildSlots().map(({ idx, slot }) => {
-                    const p = promoBanners[idx];
-                    const [xOffset, scale, opacity, zIndex] = slotDefs[slot];
-                    const isCenter = slot === "center";
-                    const isAdj = slot === "left" || slot === "right";
-                    return (
-                      <div
-                        key={p.id + slot}
-                        onClick={() => !isCenter && setPromoActive(idx)}
-                        style={{
-                          position: "absolute",
-                          left: "50%",
-                          top: "50%",
-                          width: "clamp(200px, 26vw, 330px)",
-                          transform: `translate(calc(-50% + ${xOffset}px), -50%) scale(${scale})`,
-                          opacity,
-                          zIndex,
-                          transition: "transform 0.48s cubic-bezier(0.4,0,0.2,1), opacity 0.48s ease",
-                          cursor: isCenter ? "default" : "pointer",
-                          transformOrigin: "center center",
-                        }}
-                      >
-                        <div
-                          className={`rounded-2xl overflow-hidden bg-card border ${
-                            isCenter
-                              ? "border-border/80 shadow-[0_8px_40px_rgba(0,0,0,0.18)]"
-                              : isAdj
-                              ? "border-border/50 shadow-lg"
-                              : "border-border/30 shadow-sm"
-                          } group`}
-                        >
-                          <div className="relative overflow-hidden bg-muted" style={{ aspectRatio: "4/3" }}>
-                            {p.gambarUrl ? (
-                              <img
-                                src={p.gambarUrl}
-                                alt={p.judul}
-                                className={`w-full h-full object-cover transition-transform duration-500 ${isCenter ? "group-hover:scale-105" : ""}`}
-                              />
-                            ) : (
-                              <div className="w-full h-full bg-gradient-to-br from-primary/30 to-amber-200 flex items-center justify-center">
-                                <Sparkles className={`text-white ${isCenter ? "h-12 w-12" : "h-8 w-8"}`} />
-                              </div>
-                            )}
-                            {p.badge && (
-                              <Badge className="absolute top-3 left-3 bg-primary text-primary-foreground rounded-full shadow text-[10px] px-2 py-0.5">
-                                {p.badge}
-                              </Badge>
-                            )}
+            {/* ── MOBILE: single full-width card with swipe ── */}
+            {isMobile ? (
+              <div
+                className="relative px-4"
+                onTouchStart={(e) => { promoTouchStartX.current = e.touches[0].clientX; }}
+                onTouchEnd={(e) => {
+                  if (promoTouchStartX.current === null) return;
+                  const dx = e.changedTouches[0].clientX - promoTouchStartX.current;
+                  if (dx < -40) promoNext();
+                  else if (dx > 40) promoPrev();
+                  promoTouchStartX.current = null;
+                }}
+              >
+                {promoBanners.map((p, i) => (
+                  <div
+                    key={p.id}
+                    style={{
+                      display: i === promoActive ? "block" : "none",
+                    }}
+                  >
+                    <div className="rounded-2xl overflow-hidden bg-card border border-border shadow-[0_6px_32px_rgba(0,0,0,0.14)]">
+                      <div className="relative overflow-hidden bg-muted" style={{ aspectRatio: "4/3" }}>
+                        {p.gambarUrl ? (
+                          <img src={p.gambarUrl} alt={p.judul} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-primary/30 to-amber-200 flex items-center justify-center">
+                            <Sparkles className="h-12 w-12 text-white" />
                           </div>
-                          <div className={isCenter ? "p-4" : "p-3"}>
-                            <h3 className={`font-bold line-clamp-1 ${isCenter ? "text-base mb-1" : "text-xs mb-0.5"}`}>
-                              {p.judul}
-                            </h3>
-                            <p className={`text-muted-foreground line-clamp-2 ${isCenter ? "text-sm" : "text-[11px]"}`}>
-                              {p.deskripsi}
-                            </p>
-                            {p.tanggalBerakhir && isCenter && (
-                              <p className="text-[10px] text-muted-foreground/50 mt-2">
-                                s/d {new Date(p.tanggalBerakhir).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
-                              </p>
-                            )}
+                        )}
+                        {p.badge && (
+                          <Badge className="absolute top-3 left-3 bg-primary text-primary-foreground rounded-full shadow text-xs">
+                            {p.badge}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="p-4">
+                        <h3 className="font-bold text-base mb-1 line-clamp-1">{p.judul}</h3>
+                        <p className="text-sm text-muted-foreground line-clamp-2">{p.deskripsi}</p>
+                        {p.tanggalBerakhir && (
+                          <p className="text-[11px] text-muted-foreground/50 mt-2">
+                            s/d {new Date(p.tanggalBerakhir).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {/* Mobile prev/next */}
+                {promoBanners.length > 1 && (
+                  <div className="flex items-center justify-between mt-4 px-1">
+                    <button onClick={promoPrev} className="h-9 w-9 rounded-full border border-border bg-background flex items-center justify-center hover:bg-muted shadow-sm" aria-label="Sebelumnya">
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <div className="flex items-center gap-1.5">
+                      {promoBanners.map((_, i) => (
+                        <button key={i} onClick={() => setPromoActive(i)} aria-label={`Promo ${i + 1}`}
+                          style={{ width: i === promoActive ? 20 : 7, height: 7, borderRadius: 999, background: i === promoActive ? "hsl(var(--primary))" : "hsl(var(--foreground)/0.2)", border: "none", padding: 0, cursor: "pointer", transition: "all 0.3s ease" }}
+                        />
+                      ))}
+                    </div>
+                    <button onClick={promoNext} className="h-9 w-9 rounded-full border border-border bg-background flex items-center justify-center hover:bg-muted shadow-sm" aria-label="Berikutnya">
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* ── TABLET & DESKTOP: 3-card or 5-card center-focus ── */
+              <div
+                className="relative w-full"
+                style={{ height: isTablet ? 420 : 480 }}
+                onMouseEnter={() => { promoHovered.current = true; }}
+                onMouseLeave={() => { promoHovered.current = false; }}
+              >
+                <div className="relative w-full h-full overflow-hidden">
+                  {(() => {
+                    const n = promoBanners.length;
+
+                    // Slot definitions: [xOffset px, scale, opacity, zIndex]
+                    // Desktop: 5-card layout with generous spacing
+                    // Tablet: 3-card layout
+                    type SlotDef = [number, number, number, number];
+                    const desktopDefs: Record<string, SlotDef> = {
+                      "far-left":  [-520, 0.65, 0.72, 1],
+                      "left":      [-270, 0.83, 0.90, 2],
+                      "center":    [   0, 1.00, 1.00, 10],
+                      "right":     [ 270, 0.83, 0.90, 2],
+                      "far-right": [ 520, 0.65, 0.72, 1],
+                    };
+                    const tabletDefs: Record<string, SlotDef> = {
+                      "left":   [-210, 0.80, 0.88, 2],
+                      "center": [   0, 1.00, 1.00, 10],
+                      "right":  [ 210, 0.80, 0.88, 2],
+                    };
+                    const slotDefs = isTablet ? tabletDefs : desktopDefs;
+
+                    type SlotKey = string;
+                    const buildSlots = (): { idx: number; slot: SlotKey }[] => {
+                      if (isTablet) {
+                        if (n === 1) return [{ idx: 0, slot: "center" }];
+                        if (n === 2) return [
+                          { idx: (promoActive - 1 + n) % n, slot: "left" },
+                          { idx: promoActive, slot: "center" },
+                        ];
+                        return [
+                          { idx: (promoActive - 1 + n) % n, slot: "left" },
+                          { idx: promoActive, slot: "center" },
+                          { idx: (promoActive + 1) % n, slot: "right" },
+                        ];
+                      }
+                      // Desktop: up to 5 cards
+                      if (n === 1) return [{ idx: 0, slot: "center" }];
+                      if (n === 2) return [
+                        { idx: (promoActive - 1 + n) % n, slot: "left" },
+                        { idx: promoActive, slot: "center" },
+                      ];
+                      if (n === 3) return [
+                        { idx: (promoActive - 1 + n) % n, slot: "left" },
+                        { idx: promoActive, slot: "center" },
+                        { idx: (promoActive + 1) % n, slot: "right" },
+                      ];
+                      if (n === 4) return [
+                        { idx: (promoActive - 1 + n) % n, slot: "left" },
+                        { idx: promoActive, slot: "center" },
+                        { idx: (promoActive + 1) % n, slot: "right" },
+                        { idx: (promoActive + 2) % n, slot: "far-right" },
+                      ];
+                      return [
+                        { idx: (promoActive - 2 + n) % n, slot: "far-left" },
+                        { idx: (promoActive - 1 + n) % n, slot: "left" },
+                        { idx: promoActive, slot: "center" },
+                        { idx: (promoActive + 1) % n, slot: "right" },
+                        { idx: (promoActive + 2) % n, slot: "far-right" },
+                      ];
+                    };
+
+                    const cardW = isTablet ? "clamp(220px, 32vw, 360px)" : "clamp(220px, 24vw, 340px)";
+
+                    return buildSlots().map(({ idx, slot }) => {
+                      const p = promoBanners[idx];
+                      const [xOffset, scale, opacity, zIndex] = slotDefs[slot];
+                      const isCenter = slot === "center";
+                      const isAdj = slot === "left" || slot === "right";
+                      return (
+                        <div
+                          key={p.id + slot}
+                          onClick={() => !isCenter && setPromoActive(idx)}
+                          style={{
+                            position: "absolute",
+                            left: "50%",
+                            top: "50%",
+                            width: cardW,
+                            transform: `translate(calc(-50% + ${xOffset}px), -50%) scale(${scale})`,
+                            opacity,
+                            zIndex,
+                            transition: "transform 0.48s cubic-bezier(0.4,0,0.2,1), opacity 0.48s ease",
+                            cursor: isCenter ? "default" : "pointer",
+                            transformOrigin: "center center",
+                          }}
+                        >
+                          <div className={`rounded-2xl overflow-hidden bg-card border ${
+                            isCenter ? "border-border/80 shadow-[0_10px_48px_rgba(0,0,0,0.16)]"
+                              : isAdj ? "border-border/50 shadow-lg"
+                              : "border-border/30 shadow-md"
+                          } group`}>
+                            <div className="relative overflow-hidden bg-muted" style={{ aspectRatio: "4/3" }}>
+                              {p.gambarUrl ? (
+                                <img src={p.gambarUrl} alt={p.judul} className={`w-full h-full object-cover transition-transform duration-500 ${isCenter ? "group-hover:scale-105" : ""}`} />
+                              ) : (
+                                <div className="w-full h-full bg-gradient-to-br from-primary/30 to-amber-200 flex items-center justify-center">
+                                  <Sparkles className={`text-white ${isCenter ? "h-12 w-12" : "h-8 w-8"}`} />
+                                </div>
+                              )}
+                              {p.badge && (
+                                <Badge className="absolute top-3 left-3 bg-primary text-primary-foreground rounded-full shadow text-[10px] px-2 py-0.5">
+                                  {p.badge}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className={isCenter ? "p-4" : "p-3"}>
+                              <h3 className={`font-bold line-clamp-1 ${isCenter ? "text-base mb-1" : "text-xs mb-0.5"}`}>{p.judul}</h3>
+                              <p className={`text-muted-foreground line-clamp-2 ${isCenter ? "text-sm" : "text-[11px]"}`}>{p.deskripsi}</p>
+                              {p.tanggalBerakhir && isCenter && (
+                                <p className="text-[10px] text-muted-foreground/50 mt-2">
+                                  s/d {new Date(p.tanggalBerakhir).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                                </p>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  });
-                })()}
+                      );
+                    });
+                  })()}
 
-                {/* Edge fade gradients for aesthetic peek effect */}
-                <div className="pointer-events-none absolute inset-y-0 left-0 w-24 z-20 bg-gradient-to-r from-background to-transparent" />
-                <div className="pointer-events-none absolute inset-y-0 right-0 w-24 z-20 bg-gradient-to-l from-background to-transparent" />
+                  {/* Edge fade */}
+                  <div className="pointer-events-none absolute inset-y-0 left-0 w-16 z-20 bg-gradient-to-r from-white to-transparent" />
+                  <div className="pointer-events-none absolute inset-y-0 right-0 w-16 z-20 bg-gradient-to-l from-white to-transparent" />
+                </div>
+
+                {/* Arrows */}
+                {promoBanners.length > 1 && (
+                  <>
+                    <button onClick={promoPrev} className="absolute left-3 top-1/2 -translate-y-1/2 z-30 h-9 w-9 rounded-full border border-border bg-background/95 flex items-center justify-center hover:bg-muted transition-colors shadow-md" aria-label="Sebelumnya">
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <button onClick={promoNext} className="absolute right-3 top-1/2 -translate-y-1/2 z-30 h-9 w-9 rounded-full border border-border bg-background/95 flex items-center justify-center hover:bg-muted transition-colors shadow-md" aria-label="Berikutnya">
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </>
+                )}
               </div>
+            )}
 
-              {/* Prev / Next arrows — sit outside the overflow-hidden track */}
-              {promoBanners.length > 1 && (
-                <>
-                  <button
-                    onClick={promoPrev}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 z-30 h-9 w-9 rounded-full border border-border bg-background/95 flex items-center justify-center hover:bg-muted transition-colors shadow-md"
-                    aria-label="Sebelumnya"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={promoNext}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 z-30 h-9 w-9 rounded-full border border-border bg-background/95 flex items-center justify-center hover:bg-muted transition-colors shadow-md"
-                    aria-label="Berikutnya"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </>
-              )}
-            </div>
-
-            {/* Dot indicators */}
-            {promoBanners.length > 1 && (
+            {/* Dot indicators — shown for tablet/desktop below the track */}
+            {!isMobile && promoBanners.length > 1 && (
               <div className="flex items-center justify-center gap-2 mt-6">
                 {promoBanners.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setPromoActive(i)}
-                    aria-label={`Promo ${i + 1}`}
-                    style={{
-                      transition: "all 0.35s ease",
-                      width: i === promoActive ? 24 : 8,
-                      height: 8,
-                      borderRadius: 999,
-                      background: i === promoActive ? "hsl(var(--primary))" : "hsl(var(--foreground)/0.2)",
-                      border: "none",
-                      padding: 0,
-                      cursor: "pointer",
-                    }}
+                  <button key={i} onClick={() => setPromoActive(i)} aria-label={`Promo ${i + 1}`}
+                    style={{ width: i === promoActive ? 24 : 8, height: 8, borderRadius: 999, background: i === promoActive ? "hsl(var(--primary))" : "hsl(var(--foreground)/0.2)", border: "none", padding: 0, cursor: "pointer", transition: "all 0.35s ease" }}
                   />
                 ))}
               </div>
