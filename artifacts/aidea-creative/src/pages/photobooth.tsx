@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Camera, Download, RefreshCw, Sparkles, ChevronLeft, ZapOff, Zap } from "lucide-react";
+import { Camera, Download, RefreshCw, Sparkles, Zap, ZapOff } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -7,7 +7,6 @@ import { motion, AnimatePresence } from "framer-motion";
 type Theme = {
   id: string;
   name: string;
-  emoji: string;
   stripBg: string;
   headerBg: string;
   headerText: string;
@@ -15,16 +14,15 @@ type Theme = {
   footerBg: string;
   footerText: string;
   accentColor: string;
-  previewBorder: string;
-  cardBg: string;
-  cardBorder: string;
+  accentText: string;
+  cardClass: string;
+  selectedClass: string;
 };
 
 const THEMES: Theme[] = [
   {
     id: "classic",
     name: "Classic White",
-    emoji: "🤍",
     stripBg: "#FFFFFF",
     headerBg: "#1e3a8a",
     headerText: "#FFFFFF",
@@ -32,14 +30,13 @@ const THEMES: Theme[] = [
     footerBg: "#1e3a8a",
     footerText: "#FFFFFF",
     accentColor: "#1e3a8a",
-    previewBorder: "border-[#1e3a8a]",
-    cardBg: "bg-blue-50",
-    cardBorder: "border-blue-200",
+    accentText: "#FFFFFF",
+    cardClass: "bg-blue-50 border-blue-100",
+    selectedClass: "ring-2 ring-blue-700 border-blue-700",
   },
   {
     id: "pink",
     name: "Pink Blossom",
-    emoji: "🌸",
     stripBg: "#FFF0F6",
     headerBg: "#db2777",
     headerText: "#FFFFFF",
@@ -47,44 +44,41 @@ const THEMES: Theme[] = [
     footerBg: "#db2777",
     footerText: "#FFFFFF",
     accentColor: "#db2777",
-    previewBorder: "border-pink-500",
-    cardBg: "bg-pink-50",
-    cardBorder: "border-pink-200",
+    accentText: "#FFFFFF",
+    cardClass: "bg-pink-50 border-pink-100",
+    selectedClass: "ring-2 ring-pink-600 border-pink-600",
   },
   {
     id: "dark",
     name: "Midnight",
-    emoji: "🖤",
     stripBg: "#111827",
     headerBg: "#f59e0b",
     headerText: "#111111",
     borderColor: "#f59e0b",
     footerBg: "#f59e0b",
     footerText: "#111111",
-    accentColor: "#f59e0b",
-    previewBorder: "border-amber-400",
-    cardBg: "bg-gray-900",
-    cardBorder: "border-gray-700",
+    accentColor: "#1f2937",
+    accentText: "#f59e0b",
+    cardClass: "bg-gray-100 border-gray-200",
+    selectedClass: "ring-2 ring-gray-800 border-gray-800",
   },
   {
     id: "gold",
     name: "Gold Wedding",
-    emoji: "✨",
     stripBg: "#FEFCF3",
     headerBg: "#92400e",
     headerText: "#FDE68A",
     borderColor: "#b45309",
     footerBg: "#92400e",
     footerText: "#FDE68A",
-    accentColor: "#b45309",
-    previewBorder: "border-amber-700",
-    cardBg: "bg-amber-50",
-    cardBorder: "border-amber-200",
+    accentColor: "#92400e",
+    accentText: "#FDE68A",
+    cardClass: "bg-amber-50 border-amber-100",
+    selectedClass: "ring-2 ring-amber-700 border-amber-700",
   },
   {
     id: "teal",
     name: "Teal Fresh",
-    emoji: "🩵",
     stripBg: "#F0FDFA",
     headerBg: "#0f766e",
     headerText: "#FFFFFF",
@@ -92,14 +86,13 @@ const THEMES: Theme[] = [
     footerBg: "#0f766e",
     footerText: "#FFFFFF",
     accentColor: "#0f766e",
-    previewBorder: "border-teal-700",
-    cardBg: "bg-teal-50",
-    cardBorder: "border-teal-200",
+    accentText: "#FFFFFF",
+    cardClass: "bg-teal-50 border-teal-100",
+    selectedClass: "ring-2 ring-teal-700 border-teal-700",
   },
   {
     id: "purple",
     name: "Purple Dream",
-    emoji: "💜",
     stripBg: "#FAF5FF",
     headerBg: "#6d28d9",
     headerText: "#FFFFFF",
@@ -107,9 +100,9 @@ const THEMES: Theme[] = [
     footerBg: "#6d28d9",
     footerText: "#FFFFFF",
     accentColor: "#6d28d9",
-    previewBorder: "border-violet-700",
-    cardBg: "bg-violet-50",
-    cardBorder: "border-violet-200",
+    accentText: "#FFFFFF",
+    cardClass: "bg-violet-50 border-violet-100",
+    selectedClass: "ring-2 ring-violet-700 border-violet-700",
   },
 ];
 
@@ -146,26 +139,27 @@ function generateStrip(photos: string[], theme: Theme): Promise<string> {
     canvas.height = STRIP_H;
     const ctx = canvas.getContext("2d")!;
 
-    // Background
     ctx.fillStyle = theme.stripBg;
     ctx.fillRect(0, 0, STRIP_W, STRIP_H);
 
-    // Left & right border lines
     ctx.fillStyle = theme.borderColor;
     ctx.fillRect(0, 0, 6, STRIP_H);
     ctx.fillRect(STRIP_W - 6, 0, 6, STRIP_H);
 
-    // Header
     ctx.fillStyle = theme.headerBg;
     ctx.fillRect(0, 0, STRIP_W, STRIP_HEADER_H);
     ctx.fillStyle = theme.headerText;
-    ctx.font = "bold 18px 'Arial', sans-serif";
+    ctx.font = "bold 18px Arial, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText("AideaCreative Studio Foto", STRIP_W / 2, STRIP_HEADER_H / 2 - 6);
-    ctx.font = "12px 'Arial', sans-serif";
+    ctx.font = "12px Arial, sans-serif";
     ctx.fillStyle = theme.headerText + "BB";
-    ctx.fillText(`Tema: ${theme.name}  ·  ${new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })}`, STRIP_W / 2, STRIP_HEADER_H / 2 + 12);
+    ctx.fillText(
+      `${theme.name}  ·  ${new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })}`,
+      STRIP_W / 2,
+      STRIP_HEADER_H / 2 + 12
+    );
 
     const loadAndDraw = async () => {
       for (let i = 0; i < photos.length; i++) {
@@ -174,29 +168,19 @@ function generateStrip(photos: string[], theme: Theme): Promise<string> {
           img.onload = () => {
             const x = STRIP_PAD_X;
             const y = STRIP_HEADER_H + i * (PHOTO_H + STRIP_GAP);
-            // photo border frame
             ctx.fillStyle = theme.borderColor;
             ctx.fillRect(x - 4, y - 4, PHOTO_W + 8, PHOTO_H + 8);
-            // clip & draw photo
             ctx.save();
             drawRoundRect(ctx, x, y, PHOTO_W, PHOTO_H, 2);
             ctx.clip();
-            // Center-crop the image to fill photo slot
-            const sw = img.naturalWidth;
-            const sh = img.naturalHeight;
+            const sw = img.naturalWidth, sh = img.naturalHeight;
             const targetRatio = PHOTO_W / PHOTO_H;
             const srcRatio = sw / sh;
             let sx = 0, sy = 0, sW = sw, sH = sh;
-            if (srcRatio > targetRatio) {
-              sW = sh * targetRatio;
-              sx = (sw - sW) / 2;
-            } else {
-              sH = sw / targetRatio;
-              sy = (sh - sH) / 2;
-            }
+            if (srcRatio > targetRatio) { sW = sh * targetRatio; sx = (sw - sW) / 2; }
+            else { sH = sw / targetRatio; sy = (sh - sH) / 2; }
             ctx.drawImage(img, sx, sy, sW, sH, x, y, PHOTO_W, PHOTO_H);
             ctx.restore();
-            // Shot number badge
             ctx.fillStyle = theme.borderColor;
             ctx.beginPath();
             ctx.arc(x + 18, y + 18, 13, 0, Math.PI * 2);
@@ -212,18 +196,17 @@ function generateStrip(photos: string[], theme: Theme): Promise<string> {
         });
       }
 
-      // Footer
       const fy = STRIP_H - STRIP_FOOTER_H;
       ctx.fillStyle = theme.footerBg;
       ctx.fillRect(0, fy, STRIP_W, STRIP_FOOTER_H);
       ctx.fillStyle = theme.footerText;
-      ctx.font = "bold 15px Arial";
+      ctx.font = "bold 14px Arial";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText("📷  Web Photobooth", STRIP_W / 2, fy + 20);
+      ctx.fillText("Web Photobooth - AideaCreative", STRIP_W / 2, fy + 20);
       ctx.font = "11px Arial";
       ctx.fillStyle = theme.footerText + "CC";
-      ctx.fillText("aidea-creative.replit.app  ·  Pringsewu, Lampung", STRIP_W / 2, fy + 40);
+      ctx.fillText("Studio Foto Pringsewu, Lampung", STRIP_W / 2, fy + 40);
 
       resolve(canvas.toDataURL("image/png"));
     };
@@ -267,7 +250,7 @@ export default function Photobooth() {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
       }
-    } catch (e: any) {
+    } catch {
       setCamError("Kamera tidak bisa diakses. Pastikan izin kamera sudah diberikan di browser.");
     }
   }, []);
@@ -279,17 +262,13 @@ export default function Photobooth() {
     canvas.width = PHOTO_W * 2;
     canvas.height = PHOTO_H * 2;
     const ctx = canvas.getContext("2d")!;
-    const vw = video.videoWidth;
-    const vh = video.videoHeight;
+    const vw = video.videoWidth, vh = video.videoHeight;
     const targetRatio = PHOTO_W / PHOTO_H;
     const srcRatio = vw / vh;
     let sx = 0, sy = 0, sw = vw, sh = vh;
     if (srcRatio > targetRatio) { sw = vh * targetRatio; sx = (vw - sw) / 2; }
     else { sh = vw / targetRatio; sy = (vh - sh) / 2; }
-    if (mirror) {
-      ctx.translate(canvas.width, 0);
-      ctx.scale(-1, 1);
-    }
+    if (mirror) { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
     ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
     return canvas.toDataURL("image/jpeg", 0.92);
   }, [mirror]);
@@ -305,7 +284,6 @@ export default function Photobooth() {
         setCountdown(c);
         timerRef.current = setTimeout(tick, 1000);
       } else {
-        // Flash + capture
         setStep("flash");
         timerRef.current = setTimeout(() => {
           const dataUrl = captureFrame();
@@ -339,7 +317,7 @@ export default function Photobooth() {
     timerRef.current = setTimeout(() => runCountdown(0), 1500);
   }, [startCamera, runCountdown]);
 
-  const retake = useCallback(async () => {
+  const retake = useCallback(() => {
     stopCamera();
     setPhotos([]);
     setStripUrl(null);
@@ -360,138 +338,138 @@ export default function Photobooth() {
   const isCapturing = step === "ready" || step === "countdown" || step === "flash" || step === "between" || step === "done";
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      {/* Navbar strip */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
-        <Link href="/">
-          <button className="flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors">
-            <ChevronLeft className="h-4 w-4" /> Kembali
-          </button>
-        </Link>
-        <div className="h-4 w-px bg-white/20" />
-        <div className="flex items-center gap-2">
-          <Camera className="h-4 w-4 text-primary" />
-          <span className="text-sm font-semibold">Web Photobooth</span>
-        </div>
-        <div className="ml-auto text-xs text-white/40">AideaCreative Studio Foto</div>
-      </div>
+    <div className="bg-muted/30 min-h-screen">
+      <div className="container mx-auto px-4 md:px-6 py-8 md:py-12">
 
-      <div className="container mx-auto px-4 py-8 max-w-5xl">
+        {/* Page header */}
+        <div className="mb-8">
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3.5 py-1.5 text-xs font-medium text-primary mb-4">
+            <Camera className="h-3 w-3" /> Web Photobooth
+          </div>
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">
+            Photobooth Virtual
+          </h1>
+          <p className="text-muted-foreground text-sm md:text-base max-w-xl">
+            Pilih tema frame, klik Mulai — countdown otomatis 3-2-1 dan 4 foto diambil berturut-turut.
+            Download hasilnya sebagai photo strip!
+          </p>
+        </div>
 
         {/* ── SETUP SCREEN ── */}
         {step === "setup" && (
           <div className="flex flex-col lg:flex-row gap-8 items-start">
-            {/* Left: instructions + theme picker */}
-            <div className="flex-1 min-w-0">
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-                <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-primary/20 text-primary px-3 py-1 text-xs font-bold">
-                  <Sparkles className="h-3 w-3" /> PHOTOBOOTH VIRTUAL
-                </div>
-                <h1 className="text-3xl md:text-4xl font-bold mb-3 leading-tight">
-                  Abadikan momen<br />
-                  <span className="text-primary">dalam 4 foto.</span>
-                </h1>
-                <p className="text-white/60 text-sm mb-8 leading-relaxed">
-                  Pilih tema frame, klik Mulai — kamera aktif otomatis.<br />
-                  Countdown 3-2-1, foto diambil 4x berturut-turut, lalu download strip-nya!
-                </p>
+            <div className="flex-1 min-w-0 space-y-6">
 
-                {/* Theme grid */}
-                <div className="mb-6">
-                  <p className="text-xs font-semibold text-white/50 uppercase tracking-widest mb-3">Pilih Tema Frame</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {THEMES.map((t) => (
-                      <button
-                        key={t.id}
-                        onClick={() => setTheme(t)}
-                        className={`relative rounded-2xl p-3 text-left border-2 transition-all ${
-                          theme.id === t.id
-                            ? `${t.cardBorder} ${t.cardBg} border-2 shadow-lg scale-[1.02]`
-                            : "border-white/10 bg-white/5 hover:bg-white/10"
-                        }`}
-                      >
-                        {theme.id === t.id && (
-                          <div className="absolute top-2 right-2 h-4 w-4 rounded-full flex items-center justify-center" style={{ background: t.accentColor }}>
-                            <svg viewBox="0 0 12 12" className="h-2.5 w-2.5 text-white"><path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                          </div>
-                        )}
-                        {/* Mini preview strip */}
-                        <div className="w-full h-16 rounded-lg mb-2 overflow-hidden relative" style={{ background: t.stripBg }}>
-                          <div className="absolute inset-x-0 top-0 h-3" style={{ background: t.headerBg }} />
-                          <div className="absolute inset-x-0 bottom-0 h-3" style={{ background: t.footerBg }} />
-                          <div className="absolute inset-x-1 top-3 bottom-3 flex flex-col gap-0.5">
-                            {[...Array(4)].map((_, i) => (
-                              <div key={i} className="flex-1 rounded-sm" style={{ background: t.borderColor + "30" }} />
-                            ))}
-                          </div>
-                          <div className="absolute left-0 top-0 bottom-0 w-1" style={{ background: t.borderColor }} />
-                          <div className="absolute right-0 top-0 bottom-0 w-1" style={{ background: t.borderColor }} />
-                        </div>
-                        <p className="text-xs font-semibold text-white truncate">{t.emoji} {t.name}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Mirror toggle */}
-                <div className="flex items-center justify-between mb-6 p-3 rounded-xl bg-white/5 border border-white/10">
-                  <div>
-                    <p className="text-sm font-medium">Mode Mirror (Selfie)</p>
-                    <p className="text-xs text-white/50">Flip kamera horizontal seperti cermin</p>
-                  </div>
-                  <button
-                    onClick={() => setMirror(!mirror)}
-                    className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-all ${
-                      mirror ? "bg-primary text-white" : "bg-white/10 text-white/60"
-                    }`}
-                  >
-                    {mirror ? <Zap className="h-3 w-3" /> : <ZapOff className="h-3 w-3" />}
-                    {mirror ? "Aktif" : "Nonaktif"}
-                  </button>
-                </div>
-
-                <Button
-                  onClick={startSession}
-                  className="w-full h-14 rounded-2xl text-base font-bold gap-2"
-                  style={{ background: theme.accentColor }}
-                >
-                  <Camera className="h-5 w-5" />
-                  Mulai Sesi Foto {theme.emoji}
-                </Button>
-
-                {camError && (
-                  <p className="mt-3 text-sm text-red-400 text-center">{camError}</p>
-                )}
-              </motion.div>
-            </div>
-
-            {/* Right: strip preview */}
-            <div className="lg:w-[220px] shrink-0">
-              <p className="text-xs font-semibold text-white/50 uppercase tracking-widest mb-3">Preview Strip</p>
-              <div
-                className="rounded-2xl overflow-hidden shadow-2xl"
-                style={{ background: theme.stripBg, border: `3px solid ${theme.borderColor}` }}
-              >
-                {/* Header */}
-                <div className="py-2 px-3 text-center" style={{ background: theme.headerBg }}>
-                  <p className="text-[10px] font-bold" style={{ color: theme.headerText }}>AideaCreative Studio</p>
-                  <p className="text-[9px]" style={{ color: theme.headerText + "99" }}>{theme.name}</p>
-                </div>
-                {/* Photo slots */}
-                <div className="px-2 py-2 flex flex-col gap-1">
-                  {[...Array(TOTAL_SHOTS)].map((_, i) => (
-                    <div
-                      key={i}
-                      className="w-full rounded overflow-hidden flex items-center justify-center"
-                      style={{ aspectRatio: "4/3", background: theme.borderColor + "18", border: `2px solid ${theme.borderColor}` }}
+              {/* Theme picker */}
+              <div className="bg-background rounded-2xl border border-border p-5 shadow-sm">
+                <p className="text-sm font-semibold mb-4">Pilih Tema Frame</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {THEMES.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setTheme(t)}
+                      className={`relative rounded-xl p-3 text-left border-2 transition-all ${
+                        theme.id === t.id
+                          ? `${t.selectedClass} ${t.cardClass}`
+                          : "border-border bg-muted/50 hover:bg-muted"
+                      }`}
                     >
-                      <Camera className="h-5 w-5 opacity-20" style={{ color: theme.borderColor }} />
-                    </div>
+                      {theme.id === t.id && (
+                        <div
+                          className="absolute top-2 right-2 h-4 w-4 rounded-full flex items-center justify-center"
+                          style={{ background: t.accentColor }}
+                        >
+                          <svg viewBox="0 0 12 12" className="h-2.5 w-2.5 text-white">
+                            <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </div>
+                      )}
+                      {/* Mini strip preview */}
+                      <div
+                        className="w-full h-14 rounded-md mb-2 overflow-hidden relative"
+                        style={{ background: t.stripBg, border: `2px solid ${t.borderColor}` }}
+                      >
+                        <div className="absolute inset-x-0 top-0 h-2.5" style={{ background: t.headerBg }} />
+                        <div className="absolute inset-x-0 bottom-0 h-2.5" style={{ background: t.footerBg }} />
+                        <div className="absolute inset-x-1.5 top-2.5 bottom-2.5 flex flex-col gap-0.5">
+                          {[...Array(4)].map((_, i) => (
+                            <div key={i} className="flex-1 rounded-sm" style={{ background: t.borderColor + "25" }} />
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-xs font-semibold text-foreground truncate">{t.name}</p>
+                    </button>
                   ))}
                 </div>
-                {/* Footer */}
-                <div className="py-2 px-3 text-center" style={{ background: theme.footerBg }}>
-                  <p className="text-[9px]" style={{ color: theme.footerText }}>📷 Web Photobooth</p>
+              </div>
+
+              {/* Mirror toggle */}
+              <div className="bg-background rounded-2xl border border-border p-5 shadow-sm flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold">Mode Mirror</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Flip kamera horizontal seperti selfie</p>
+                </div>
+                <button
+                  onClick={() => setMirror(!mirror)}
+                  className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-all border ${
+                    mirror
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
+                  }`}
+                >
+                  {mirror ? <Zap className="h-3 w-3" /> : <ZapOff className="h-3 w-3" />}
+                  {mirror ? "Aktif" : "Nonaktif"}
+                </button>
+              </div>
+
+              {camError && (
+                <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-xl px-4 py-3">
+                  {camError}
+                </p>
+              )}
+
+              <Button
+                onClick={startSession}
+                className="w-full h-13 rounded-2xl text-base font-semibold gap-2"
+                size="lg"
+              >
+                <Camera className="h-5 w-5" />
+                Mulai Sesi Foto
+              </Button>
+            </div>
+
+            {/* Strip preview card */}
+            <div className="lg:w-[200px] shrink-0">
+              <div className="bg-background rounded-2xl border border-border p-4 shadow-sm">
+                <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Preview Strip</p>
+                <div
+                  className="rounded-xl overflow-hidden shadow-md"
+                  style={{ border: `3px solid ${theme.borderColor}` }}
+                >
+                  <div className="py-2 px-2 text-center" style={{ background: theme.headerBg }}>
+                    <p className="text-[9px] font-bold leading-tight" style={{ color: theme.headerText }}>
+                      AideaCreative Studio
+                    </p>
+                    <p className="text-[8px] opacity-80" style={{ color: theme.headerText }}>{theme.name}</p>
+                  </div>
+                  <div className="px-2 py-2 flex flex-col gap-1" style={{ background: theme.stripBg }}>
+                    {[...Array(TOTAL_SHOTS)].map((_, i) => (
+                      <div
+                        key={i}
+                        className="w-full rounded flex items-center justify-center"
+                        style={{
+                          aspectRatio: "4/3",
+                          background: theme.borderColor + "15",
+                          border: `1.5px solid ${theme.borderColor}`,
+                        }}
+                      >
+                        <Camera className="h-4 w-4 opacity-20" style={{ color: theme.borderColor }} />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="py-2 px-2 text-center" style={{ background: theme.footerBg }}>
+                    <p className="text-[8px]" style={{ color: theme.footerText }}>Web Photobooth</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -500,11 +478,10 @@ export default function Photobooth() {
 
         {/* ── CAPTURE SCREEN ── */}
         {isCapturing && (
-          <div className="flex flex-col items-center">
-            <div className="relative w-full max-w-xl">
-              {/* Camera frame with theme border */}
+          <div className="flex flex-col items-center gap-6">
+            <div className="relative w-full max-w-2xl">
               <div
-                className="relative rounded-2xl overflow-hidden shadow-2xl"
+                className="relative rounded-2xl overflow-hidden shadow-xl"
                 style={{ aspectRatio: "4/3", border: `5px solid ${theme.accentColor}` }}
               >
                 <video
@@ -516,105 +493,101 @@ export default function Photobooth() {
                   style={{ transform: mirror ? "scaleX(-1)" : "none" }}
                 />
 
-                {/* Flash overlay */}
                 <AnimatePresence>
                   {step === "flash" && (
                     <motion.div
                       className="absolute inset-0 bg-white"
-                      initial={{ opacity: 0.9 }}
+                      initial={{ opacity: 0.95 }}
                       animate={{ opacity: 0 }}
                       exit={{ opacity: 0 }}
-                      transition={{ duration: 0.35 }}
+                      transition={{ duration: 0.3 }}
                     />
                   )}
                 </AnimatePresence>
 
-                {/* Countdown overlay */}
                 <AnimatePresence mode="wait">
                   {step === "countdown" && (
                     <motion.div
                       key={countdown}
                       className="absolute inset-0 flex flex-col items-center justify-center"
-                      style={{ background: "rgba(0,0,0,0.35)" }}
+                      style={{ background: "rgba(0,0,0,0.4)" }}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                     >
                       <motion.div
                         key={countdown}
-                        initial={{ scale: 1.6, opacity: 0 }}
+                        initial={{ scale: 1.8, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0.7, opacity: 0 }}
-                        transition={{ duration: 0.35, ease: "easeOut" }}
-                        className="text-[120px] font-black leading-none drop-shadow-2xl"
-                        style={{ color: theme.accentColor }}
+                        exit={{ scale: 0.6, opacity: 0 }}
+                        transition={{ duration: 0.3, ease: "easeOut" }}
+                        className="text-[110px] font-black leading-none drop-shadow-2xl"
+                        style={{ color: "white" }}
                       >
                         {countdown}
                       </motion.div>
-                      <p className="text-white/90 font-semibold text-lg mt-2">Foto {shotIdx + 1} dari {TOTAL_SHOTS}</p>
+                      <p className="text-white/90 font-semibold text-lg mt-2 drop-shadow">
+                        Foto {shotIdx + 1} dari {TOTAL_SHOTS}
+                      </p>
                     </motion.div>
                   )}
                 </AnimatePresence>
 
-                {/* Between shots */}
                 {step === "between" && (
                   <div className="absolute inset-0 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}>
                     <div className="text-center">
-                      <div className="text-4xl mb-2">✅</div>
-                      <p className="text-white font-bold text-lg">Foto {photos.length} disimpan!</p>
-                      <p className="text-white/70 text-sm">Bersiap untuk foto {photos.length + 1}…</p>
+                      <p className="text-white font-bold text-xl">Foto {photos.length} selesai!</p>
+                      <p className="text-white/70 text-sm mt-1">Bersiap untuk foto {photos.length + 1}…</p>
                     </div>
                   </div>
                 )}
 
-                {/* Done processing */}
                 {step === "done" && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/70">
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/60">
                     <div className="text-center">
-                      <div className="text-4xl mb-2 animate-spin">⚙️</div>
+                      <Sparkles className="h-8 w-8 text-white mx-auto mb-2 animate-spin" />
                       <p className="text-white font-bold">Membuat photo strip…</p>
                     </div>
                   </div>
                 )}
 
-                {/* Shot counter pill */}
                 {step !== "done" && (
                   <div
-                    className="absolute top-3 right-3 rounded-full px-3 py-1 text-xs font-bold"
-                    style={{ background: theme.accentColor, color: theme.headerText }}
+                    className="absolute top-3 right-3 rounded-full px-3 py-1 text-xs font-bold shadow"
+                    style={{ background: theme.accentColor, color: theme.accentText }}
                   >
                     {photos.length} / {TOTAL_SHOTS}
                   </div>
                 )}
 
-                {/* Theme name badge */}
-                <div className="absolute bottom-3 left-3 rounded-full px-3 py-1 text-[10px] font-semibold bg-black/50 text-white">
-                  {theme.emoji} {theme.name}
+                <div className="absolute bottom-3 left-3 rounded-full px-3 py-1 text-[11px] font-medium bg-black/50 text-white shadow">
+                  {theme.name}
                 </div>
               </div>
 
-              {/* Thumbnail row */}
+              {/* Thumbnail strip */}
               <div className="mt-4 flex gap-2 justify-center">
                 {[...Array(TOTAL_SHOTS)].map((_, i) => (
                   <div
                     key={i}
-                    className="rounded-lg overflow-hidden"
+                    className="rounded-lg overflow-hidden bg-muted"
                     style={{
-                      width: 64, height: 48,
-                      border: `2px solid ${i < photos.length ? theme.accentColor : "rgba(255,255,255,0.15)"}`,
-                      background: i < photos.length ? "transparent" : "rgba(255,255,255,0.05)",
+                      width: 72,
+                      height: 54,
+                      border: `2px solid ${i < photos.length ? theme.accentColor : "hsl(var(--border))"}`,
                     }}
                   >
                     {photos[i] ? (
-                      <img src={photos[i]} className="w-full h-full object-cover" alt={`foto ${i + 1}`} style={{ transform: "none" }} />
+                      <img src={photos[i]} className="w-full h-full object-cover" alt={`foto ${i + 1}`} />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-[10px] text-white/30 font-bold">{i + 1}</div>
+                      <div className="w-full h-full flex items-center justify-center text-[11px] text-muted-foreground font-semibold">
+                        {i + 1}
+                      </div>
                     )}
                   </div>
                 ))}
               </div>
             </div>
-
             <canvas ref={captureCanvasRef} className="hidden" />
           </div>
         )}
@@ -622,69 +595,73 @@ export default function Photobooth() {
         {/* ── RESULT SCREEN ── */}
         {step === "result" && stripUrl && (
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col lg:flex-row gap-10 items-start justify-center"
+            className="flex flex-col lg:flex-row gap-10 items-start"
           >
-            {/* Strip preview */}
-            <div className="flex flex-col items-center gap-4">
-              <p className="text-xs font-semibold text-white/50 uppercase tracking-widest">Photo Strip Kamu</p>
+            {/* Strip image */}
+            <div className="flex flex-col items-center gap-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Photo Strip</p>
               <div
-                className="rounded-2xl overflow-hidden shadow-2xl max-h-[70vh]"
-                style={{ border: `3px solid ${theme.accentColor}` }}
+                className="rounded-2xl overflow-hidden shadow-lg"
+                style={{ border: `3px solid ${theme.borderColor}` }}
               >
                 <img
                   src={stripUrl}
                   alt="photo strip"
-                  className="block max-h-[70vh] w-auto"
-                  style={{ maxWidth: "min(400px, 90vw)" }}
+                  className="block w-auto"
+                  style={{ maxHeight: "68vh", maxWidth: "min(380px, 88vw)" }}
                 />
               </div>
             </div>
 
             {/* Actions */}
-            <div className="flex-1 max-w-sm">
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-green-500/20 text-green-400 px-3 py-1 text-xs font-bold">
-                🎉 Sesi Selesai!
+            <div className="flex-1 max-w-sm space-y-5">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full bg-green-100 text-green-700 border border-green-200 px-3 py-1 text-xs font-semibold mb-3">
+                  Sesi selesai!
+                </div>
+                <h2 className="text-2xl font-bold mb-1">Strip siap didownload</h2>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  4 foto sudah digabung jadi satu strip dengan tema <span className="font-semibold text-foreground">{theme.name}</span>. Download dan bagikan ke media sosial!
+                </p>
               </div>
-              <h2 className="text-2xl font-bold mb-2">Strip siap didownload!</h2>
-              <p className="text-white/60 text-sm mb-6 leading-relaxed">
-                4 foto sudah digabung jadi satu strip dengan tema <strong>{theme.name}</strong>. Download sekarang dan bagikan ke sosial media!
-              </p>
 
               {/* Thumbnails */}
-              <div className="grid grid-cols-4 gap-2 mb-6">
+              <div className="grid grid-cols-4 gap-2">
                 {photos.map((p, i) => (
-                  <div key={i} className="rounded-lg overflow-hidden aspect-[4/3]" style={{ border: `2px solid ${theme.accentColor}` }}>
+                  <div
+                    key={i}
+                    className="rounded-lg overflow-hidden aspect-[4/3]"
+                    style={{ border: `2px solid ${theme.borderColor}` }}
+                  >
                     <img src={p} className="w-full h-full object-cover" alt={`foto ${i + 1}`} />
                   </div>
                 ))}
               </div>
 
-              <div className="flex flex-col gap-3">
-                <Button
-                  onClick={downloadStrip}
-                  className="h-12 rounded-2xl font-bold gap-2 w-full"
-                  style={{ background: theme.accentColor }}
-                >
+              <div className="space-y-2.5">
+                <Button onClick={downloadStrip} className="w-full h-11 rounded-xl font-semibold gap-2" size="lg">
                   <Download className="h-4 w-4" />
                   Download Strip PNG
                 </Button>
-
                 <Button
                   onClick={retake}
                   variant="outline"
-                  className="h-12 rounded-2xl font-bold gap-2 w-full border-white/20 text-white hover:bg-white/10"
+                  className="w-full h-11 rounded-xl font-semibold gap-2"
+                  size="lg"
                 >
                   <RefreshCw className="h-4 w-4" />
                   Sesi Baru / Ganti Tema
                 </Button>
 
-                <div className="pt-2 border-t border-white/10">
-                  <p className="text-xs text-white/40 text-center mb-3">Suka hasilnya? Booking sesi foto sungguhan yuk!</p>
+                <div className="pt-3 border-t border-border">
+                  <p className="text-xs text-muted-foreground text-center mb-3">
+                    Suka hasilnya? Yuk booking sesi foto sungguhan!
+                  </p>
                   <Link href="/booking">
-                    <Button variant="outline" className="w-full rounded-2xl border-primary/40 text-primary hover:bg-primary hover:text-white transition-colors">
-                      📅 Booking Studio Sekarang
+                    <Button variant="outline" className="w-full rounded-xl border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground transition-colors">
+                      Booking Studio Sekarang
                     </Button>
                   </Link>
                 </div>

@@ -70,6 +70,7 @@ function MainRoutes() {
       <Suspense fallback={<PageFallback />}>
         <Switch>
           <Route path="/" component={Home} />
+          <Route path="/photobooth" component={Photobooth} />
           <Route path="/portfolio" component={Portfolio} />
           <Route path="/paket" component={Paket} />
           <Route path="/toko" component={Toko} />
@@ -128,7 +129,6 @@ function Router() {
       <Switch>
         <Route path="/login" component={Login} />
         <Route path="/register" component={Register} />
-        <Route path="/photobooth" component={Photobooth} />
         <Route path="/dashboard/login" component={AdminLogin} />
         <Route path="/dashboard"><ProtectedRoute requireAdmin><AdminBeranda /></ProtectedRoute></Route>
         <Route path="/dashboard/booking"><ProtectedRoute requireAdmin><AdminBookings /></ProtectedRoute></Route>

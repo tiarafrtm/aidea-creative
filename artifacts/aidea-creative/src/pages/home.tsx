@@ -193,8 +193,8 @@ export default function Home() {
                 </Button>
               </Link>
               <Link href="/photobooth">
-                <Button size="lg" variant="ghost" className="rounded-full h-12 px-7 text-sm font-medium border border-dashed border-primary/40 hover:bg-primary/5">
-                  📷 Coba Photobooth
+                <Button size="lg" variant="outline" className="rounded-full h-12 px-7 text-sm font-medium">
+                  Coba Photobooth
                 </Button>
               </Link>
             </motion.div>
