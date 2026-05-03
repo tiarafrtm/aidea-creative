@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 
 export default function Paket() {
   const { data: paketList, isLoading } = useListPaket({}, { refetchInterval: 5000 });
-  const { data: kategoriList } = useListKategori({}, { refetchInterval: 30000 });
+  const { data: kategoriList } = useListKategori({}, { refetchInterval: 5000 });
   const search = useSearch();
   const [filter, setFilter] = useState<string>("Semua");
 
