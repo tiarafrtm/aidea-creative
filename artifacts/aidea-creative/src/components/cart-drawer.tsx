@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Minus, Plus, ShoppingCart, Trash2, X, Loader2, ShoppingBag } from "lucide-react";
+import { Minus, Plus, ShoppingCart, X, Loader2, ShoppingBag } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -30,13 +30,8 @@ function loadSnapScript(): Promise<void> {
   });
 }
 
-type OrderSuccess = {
-  kodePesanan: string;
-  totalHarga: number;
-};
-
 function CheckoutDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { items, totalHarga, clearCart } = useCart();
+  const { items, totalHarga, clearCart, setIsOpen: setCartOpen } = useCart();
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -46,7 +41,6 @@ function CheckoutDialog({ open, onClose }: { open: boolean; onClose: () => void 
   const [telepon, setTelepon] = useState(profile?.no_telepon ?? "");
   const [catatan, setCatatan] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [success, setSuccess] = useState<OrderSuccess | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,16 +74,26 @@ function CheckoutDialog({ open, onClose }: { open: boolean; onClose: () => void 
       if (!res.ok) throw new Error(data.error ?? "Gagal membuat pesanan");
 
       if (data.snapToken && CLIENT_KEY) {
+        // Tutup semua modal/drawer SEBELUM snap.pay() agar Radix melepas
+        // scroll-lock pada body — tanpa ini Snap popup tidak bisa discroll.
+        onClose();
+        setCartOpen(false);
+
         await loadSnapScript();
+
+        // Beri waktu 1 frame agar Radix selesai cleanup overflow:hidden
+        await new Promise((r) => setTimeout(r, 80));
+
         (window as any).snap.pay(data.snapToken, {
           onSuccess: () => {
             clearCart();
-            setSuccess({ kodePesanan: data.kodePesanan, totalHarga: data.totalHarga });
+            toast({ title: "Pembayaran berhasil! 🎉", description: `Kode pesanan: ${data.kodePesanan}` });
+            setLocation("/profil");
           },
           onPending: () => {
             clearCart();
-            setSuccess({ kodePesanan: data.kodePesanan, totalHarga: data.totalHarga });
-            toast({ title: "Pembayaran tertunda", description: "Selesaikan pembayaran sesuai instruksi." });
+            toast({ title: "Pembayaran tertunda", description: "Selesaikan pembayaran sesuai instruksi yang dikirim." });
+            setLocation("/profil");
           },
           onError: () => {
             toast({ title: "Pembayaran gagal", description: "Coba lagi atau hubungi admin.", variant: "destructive" });
@@ -97,8 +101,12 @@ function CheckoutDialog({ open, onClose }: { open: boolean; onClose: () => void 
           onClose: () => {},
         });
       } else {
+        // Tanpa Midtrans (snap token tidak tersedia): tampilkan toast & redirect
         clearCart();
-        setSuccess({ kodePesanan: data.kodePesanan, totalHarga: data.totalHarga });
+        onClose();
+        setCartOpen(false);
+        toast({ title: "Pesanan berhasil dibuat!", description: `Kode: ${data.kodePesanan} — Hubungi admin untuk konfirmasi pembayaran.` });
+        setLocation("/profil");
       }
     } catch (err: any) {
       toast({ title: "Gagal checkout", description: err.message, variant: "destructive" });
@@ -106,41 +114,6 @@ function CheckoutDialog({ open, onClose }: { open: boolean; onClose: () => void 
       setIsLoading(false);
     }
   };
-
-  const handleSuccessClose = () => {
-    setSuccess(null);
-    onClose();
-    setLocation("/profil");
-  };
-
-  if (success) {
-    return (
-      <Dialog open={open} onOpenChange={(o) => !o && handleSuccessClose()}>
-        <DialogContent className="sm:max-w-md">
-          <div className="flex flex-col items-center gap-4 py-4">
-            <div className="h-16 w-16 rounded-full bg-emerald-100 flex items-center justify-center">
-              <ShoppingBag className="h-8 w-8 text-emerald-600" />
-            </div>
-            <div className="text-center">
-              <h3 className="text-lg font-bold mb-1">Pesanan Berhasil!</h3>
-              <p className="text-sm text-muted-foreground mb-2">
-                Kode pesanan Anda: <span className="font-mono font-bold text-foreground">{success.kodePesanan}</span>
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Total: <span className="font-semibold text-foreground">Rp {success.totalHarga.toLocaleString("id-ID")}</span>
-              </p>
-            </div>
-            <p className="text-xs text-muted-foreground text-center">
-              Ambil pesanan di studio setelah pembayaran dikonfirmasi. Kami akan menghubungi Anda via WhatsApp.
-            </p>
-            <Button className="w-full" onClick={handleSuccessClose}>
-              Lihat Riwayat Pesanan
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
