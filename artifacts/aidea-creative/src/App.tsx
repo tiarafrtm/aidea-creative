@@ -26,6 +26,7 @@ import AdminLaporan from "@/pages/admin/laporan";
 import AdminUsers from "@/pages/admin/users";
 import AdminLanding from "@/pages/admin/landing";
 import AdminPromo from "@/pages/admin/promo";
+import AdminPaket from "@/pages/admin/paket";
 
 // Public pages — lazy loaded so they don't bloat the initial bundle
 const Portfolio = lazy(() => import("@/pages/portfolio"));
@@ -135,6 +136,7 @@ function Router() {
         <Route path="/dashboard/jadwal"><ProtectedRoute requireAdmin><AdminJadwal /></ProtectedRoute></Route>
         <Route path="/dashboard/testimoni"><ProtectedRoute requireAdmin><AdminTestimoni /></ProtectedRoute></Route>
         <Route path="/dashboard/promo"><ProtectedRoute requireAdmin><AdminPromo /></ProtectedRoute></Route>
+        <Route path="/dashboard/paket"><ProtectedRoute requireAdmin><AdminPaket /></ProtectedRoute></Route>
         <Route path="/dashboard/users"><ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute></Route>
         <Route path="/dashboard/landing"><ProtectedRoute requireAdmin><AdminLanding /></ProtectedRoute></Route>
         <Route path="/dashboard/chat"><ProtectedRoute requireAdmin><AdminChat /></ProtectedRoute></Route>

@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, CalendarRange, Package, Image as ImageIcon,
   Clock, Users, FileBarChart, MessagesSquare, LogOut, Menu, ShieldCheck, ExternalLink,
-  Megaphone, Settings, UserCog, ShoppingCart,
+  Megaphone, Settings, UserCog, ShoppingCart, Camera,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/auth";
 const navItems = [
   { href: "/dashboard", label: "Beranda", icon: LayoutDashboard },
   { href: "/dashboard/booking", label: "Booking", icon: CalendarRange },
+  { href: "/dashboard/paket", label: "Paket Layanan", icon: Camera },
   { href: "/dashboard/produk", label: "Produk", icon: Package },
   { href: "/dashboard/pesanan", label: "Pesanan Toko", icon: ShoppingCart },
   { href: "/dashboard/portfolio", label: "Portfolio", icon: ImageIcon },
