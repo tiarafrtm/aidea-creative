@@ -734,17 +734,33 @@ export default function Photobooth() {
                             </svg>
                           </span>
                         )}
-                        {/* Mini strip preview */}
-                        <div className="w-full h-14 rounded-md mb-2.5 overflow-hidden bg-white border border-border relative">
-                          <div className="absolute inset-x-0 top-0 h-3" style={{ background: t.headerBg }} />
-                          <div className="absolute inset-x-0 bottom-0 h-3" style={{ background: t.footerBg }} />
-                          <div className="absolute inset-x-2 top-3 bottom-3 flex flex-col gap-0.5">
+                        {/* Mini strip preview — wide frame style */}
+                        <div
+                          className="w-full h-16 rounded-md mb-2.5 overflow-hidden relative flex"
+                          style={{ background: t.headerBg }}
+                        >
+                          {/* Left frame */}
+                          <div className="w-7 shrink-0 flex flex-col items-center justify-around py-1">
                             {[...Array(4)].map((_, i) => (
-                              <div key={i} className="flex-1 rounded-sm" style={{ background: t.borderColor + "20" }} />
+                              <div key={i} className="w-2 h-2 rounded-full opacity-70" style={{ background: t.headerText }} />
                             ))}
                           </div>
-                          <div className="absolute left-0 top-0 bottom-0 w-1.5" style={{ background: t.borderColor }} />
-                          <div className="absolute right-0 top-0 bottom-0 w-1.5" style={{ background: t.borderColor }} />
+                          {/* Center photo column */}
+                          <div className="flex-1 flex flex-col gap-0.5 py-1" style={{ background: t.stripBg }}>
+                            {[...Array(4)].map((_, i) => (
+                              <div key={i} className="flex-1 opacity-25 rounded-sm" style={{ background: t.borderColor }} />
+                            ))}
+                          </div>
+                          {/* Right frame */}
+                          <div className="w-7 shrink-0 flex flex-col items-center justify-around py-1">
+                            {[...Array(4)].map((_, i) => (
+                              <div key={i} className="w-2 h-2 rounded-full opacity-70" style={{ background: t.headerText }} />
+                            ))}
+                          </div>
+                          {/* Footer strip */}
+                          <div className="absolute inset-x-0 bottom-0 h-3 flex items-center justify-center" style={{ background: t.footerBg }}>
+                            <div className="h-0.5 w-8 rounded-full opacity-40" style={{ background: t.footerText }} />
+                          </div>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${t.dot}`} />
