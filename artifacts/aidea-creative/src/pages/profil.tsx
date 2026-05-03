@@ -618,20 +618,29 @@ export default function Profil() {
   const saveProfile = async () => {
     if (!supabase || !user) return;
     setIsSaving(true);
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        nama_lengkap: namaLengkap,
-        no_telepon: noTelepon || null,
-        alamat: alamat || null,
-        foto_profil: fotoProfil || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", user.id);
-    setIsSaving(false);
-    if (error) {
-      toast({ title: "Gagal menyimpan", description: error.message, variant: "destructive" });
-      return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await fetch("/api/me", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          namaLengkap,
+          noTelepon: noTelepon || null,
+          alamat: alamat || null,
+          fotoProfil: fotoProfil || null,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        toast({ title: "Gagal menyimpan", description: body.error ?? "Terjadi kesalahan.", variant: "destructive" });
+        return;
+      }
+    } finally {
+      setIsSaving(false);
     }
     await refreshProfile();
     toast({ title: "Profil tersimpan", description: "Data profil berhasil diperbarui." });
@@ -659,10 +668,16 @@ export default function Profil() {
     }
     const { data } = supabase.storage.from("avatars").getPublicUrl(path);
     setFotoProfil(data.publicUrl);
-    await supabase
-      .from("profiles")
-      .update({ foto_profil: data.publicUrl, updated_at: new Date().toISOString() })
-      .eq("id", user.id);
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    await fetch("/api/me", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ fotoProfil: data.publicUrl }),
+    });
     setIsUploading(false);
     await refreshProfile();
     toast({ title: "Foto profil diperbarui" });
