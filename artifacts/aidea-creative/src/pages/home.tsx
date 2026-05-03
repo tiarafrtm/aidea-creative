@@ -5,8 +5,6 @@ import {
   ArrowRight,
   ArrowUpRight,
   Camera,
-  ShoppingBag,
-  CalendarDays,
   Sparkles,
   Star,
   Tag,
@@ -15,38 +13,15 @@ import {
 } from "lucide-react";
 import {
   useListPaket,
-  getListPaketQueryKey,
   useListTestimoni,
-  getListTestimoniQueryKey,
   useListPromo,
-  getListPromoQueryKey,
   useListPortfolio,
-  getListPortfolioQueryKey,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useSiteSettings } from "@/lib/settings";
-
-const galleryImages = [
-  { src: "/images/portfolio-wedding.png", label: "Wedding", h: "h-[420px]" },
-  { src: "/images/portfolio-family.png", label: "Family", h: "h-[260px]" },
-  { src: "/images/portfolio-product.png", label: "Produk UMKM", h: "h-[340px]" },
-  { src: "/images/portfolio-graduation.png", label: "Graduation", h: "h-[300px]" },
-  { src: "/images/product-album.png", label: "Album", h: "h-[380px]" },
-  { src: "/images/product-frame.png", label: "Frame", h: "h-[240px]" },
-  { src: "/images/portfolio-wedding.png", label: "Prewedding", h: "h-[320px]" },
-  { src: "/images/portfolio-family.png", label: "Maternity", h: "h-[280px]" },
-];
-
-const categories = [
-  { href: "/portfolio", label: "Portfolio", icon: Camera, color: "bg-rose-100 text-rose-600" },
-  { href: "/paket", label: "Paket Foto", icon: Sparkles, color: "bg-amber-100 text-amber-600" },
-  { href: "/toko", label: "Toko Cetak", icon: ShoppingBag, color: "bg-emerald-100 text-emerald-600" },
-  { href: "/booking", label: "Booking", icon: CalendarDays, color: "bg-blue-100 text-blue-600" },
-  { href: "/testimoni", label: "Testimoni", icon: Star, color: "bg-violet-100 text-violet-600" },
-];
 
 const heroColumns = [
   [
@@ -72,6 +47,19 @@ const heroColumns = [
   ],
 ];
 
+const FALLBACK_GALLERY = [
+  { src: "/images/portfolio-wedding.png", label: "Wedding", h: "h-[420px]" },
+  { src: "/images/portfolio-family.png", label: "Family", h: "h-[260px]" },
+  { src: "/images/portfolio-product.png", label: "Produk UMKM", h: "h-[340px]" },
+  { src: "/images/portfolio-graduation.png", label: "Graduation", h: "h-[300px]" },
+  { src: "/images/product-album.png", label: "Album", h: "h-[380px]" },
+  { src: "/images/product-frame.png", label: "Frame", h: "h-[240px]" },
+  { src: "/images/portfolio-wedding.png", label: "Prewedding", h: "h-[320px]" },
+  { src: "/images/portfolio-family.png", label: "Maternity", h: "h-[280px]" },
+];
+
+const MASONRY_HEIGHTS = ["h-[280px]", "h-[340px]", "h-[260px]", "h-[400px]", "h-[300px]", "h-[360px]", "h-[240px]", "h-[320px]"];
+
 export default function Home() {
   const { data: settings } = useSiteSettings();
   const { data: paketList, isLoading: loadingPaket } = useListPaket();
@@ -79,43 +67,60 @@ export default function Home() {
   const { data: promoList } = useListPromo();
   const { data: portfolioList } = useListPortfolio();
 
-  // Build hero collage from real Portfolio entries (featured first), falling
-  // back to the static gallery if the admin hasn't uploaded enough photos yet.
   const portfolioImages = (() => {
     const items = Array.isArray(portfolioList) ? portfolioList : [];
     const sorted = [...items].sort((a, b) => Number(b.isFeatured) - Number(a.isFeatured));
-    const urls: string[] = [];
+    const urls: { src: string; label: string }[] = [];
     for (const p of sorted) {
       const arr = Array.isArray(p.gambarUrl) ? p.gambarUrl : [];
-      for (const u of arr) if (u) urls.push(u);
+      for (const u of arr) {
+        if (u) urls.push({ src: u, label: p.judul || p.kategori || "" });
+      }
     }
     return urls;
   })();
+
   const heroPhotoColumns = (() => {
     if (portfolioImages.length === 0) return heroColumns;
     const heights = ["h-64", "h-48", "h-56", "h-44", "h-60", "h-52"];
     const cols: { src: string; h: string }[][] = [[], [], []];
-    portfolioImages.forEach((src, i) => {
-      cols[i % 3].push({ src, h: heights[i % heights.length] });
+    portfolioImages.forEach((img, i) => {
+      cols[i % 3].push({ src: img.src, h: heights[i % heights.length] });
     });
-    // Pad short columns by recycling
     cols.forEach((c, idx) => {
       let i = 0;
       while (c.length < 5 && portfolioImages.length > 0) {
-        c.push({ src: portfolioImages[(idx + i) % portfolioImages.length], h: heights[(c.length) % heights.length] });
+        c.push({ src: portfolioImages[(idx + i) % portfolioImages.length].src, h: heights[c.length % heights.length] });
         i++;
       }
     });
     return cols;
   })();
 
-  const popularPackages = Array.isArray(paketList) ? paketList.filter((p) => p.isPopuler).slice(0, 4) : [];
-  const recentTestimonials = Array.isArray(testimoniList) ? testimoniList.slice(0, 8) : [];
+  const galleryItems = (() => {
+    if (portfolioImages.length > 0) {
+      return portfolioImages.slice(0, 12).map((img, i) => ({
+        src: img.src,
+        label: img.label,
+        h: MASONRY_HEIGHTS[i % MASONRY_HEIGHTS.length],
+      }));
+    }
+    return FALLBACK_GALLERY;
+  })();
+
+  const popularPackages = Array.isArray(paketList)
+    ? paketList.filter((p) => p.isPopuler).slice(0, 4)
+    : [];
+
+  const recentTestimonials = Array.isArray(testimoniList)
+    ? testimoniList.slice(0, 10)
+    : [];
+
   const now = Date.now();
   const promoBanners = (Array.isArray(promoList) ? promoList : []).filter((p) => {
     if (!p.isAktif) return false;
-    if (p.tanggalMulai && new Date(p.tanggalMulai).getTime() > now) return false;
-    if (p.tanggalBerakhir && new Date(p.tanggalBerakhir).getTime() < now) return false;
+    if ((p as any).tanggalMulai && new Date((p as any).tanggalMulai).getTime() > now) return false;
+    if ((p as any).tanggalBerakhir && new Date((p as any).tanggalBerakhir).getTime() < now) return false;
     return true;
   });
 
@@ -124,45 +129,38 @@ export default function Home() {
   const heroY = useTransform(heroProgress, [0, 1], [0, 120]);
   const heroFade = useTransform(heroProgress, [0, 0.7], [1, 0]);
 
-  const [promoActive, setPromoActive] = useState(0);
+  /* ─── Promo Carousel ─── */
+  const [promoIdx, setPromoIdx] = useState(0);
   const promoHovered = useRef(false);
-  const promoTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const promoTouchStartX = useRef<number | null>(null);
+  const promoTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const promoDragStartX = useRef<number | null>(null);
 
-  // Responsive breakpoint tracking
-  const [screenW, setScreenW] = useState(() => (typeof window !== "undefined" ? window.innerWidth : 1200));
-  useEffect(() => {
-    const handle = () => setScreenW(window.innerWidth);
-    window.addEventListener("resize", handle);
-    return () => window.removeEventListener("resize", handle);
-  }, []);
-  const isMobile = screenW < 640;
-  const isTablet = screenW >= 640 && screenW < 1024;
+  const n = promoBanners.length;
 
   const promoNext = useCallback(() => {
-    setPromoActive((prev) => (prev + 1) % Math.max(promoBanners.length, 1));
-  }, [promoBanners.length]);
+    setPromoIdx((prev) => (prev + 1) % Math.max(n, 1));
+  }, [n]);
 
   const promoPrev = useCallback(() => {
-    setPromoActive((prev) => (prev - 1 + Math.max(promoBanners.length, 1)) % Math.max(promoBanners.length, 1));
-  }, [promoBanners.length]);
+    setPromoIdx((prev) => (prev - 1 + Math.max(n, 1)) % Math.max(n, 1));
+  }, [n]);
 
   useEffect(() => {
-    if (promoBanners.length <= 1) return;
-    promoTimer.current = setInterval(() => {
-      if (!promoHovered.current) setPromoActive((p) => (p + 1) % promoBanners.length);
+    if (n <= 1) return;
+    promoTimerRef.current = setInterval(() => {
+      if (!promoHovered.current) promoNext();
     }, 4000);
-    return () => { if (promoTimer.current) clearInterval(promoTimer.current); };
-  }, [promoBanners.length]);
-
-  const promoIndicatorCount = promoBanners.length;
-  const promoTrackWidth = `calc(${promoBanners.length * 100}% + ${(promoBanners.length - 1) * 24}px)`;
+    return () => { if (promoTimerRef.current) clearInterval(promoTimerRef.current); };
+  }, [n, promoNext]);
 
   return (
     <div className="w-full overflow-hidden">
-      {/* HERO */}
+      {/* ── HERO ── */}
       <section ref={heroRef} className="relative -mt-24 min-h-[100vh] flex items-center bg-white overflow-hidden">
-        <motion.div style={{ y: heroY, opacity: heroFade }} className="container relative z-10 mx-auto px-5 md:px-8 pt-28 pb-16 grid md:grid-cols-12 gap-10 items-center">
+        <motion.div
+          style={{ y: heroY, opacity: heroFade }}
+          className="container relative z-10 mx-auto px-5 md:px-8 pt-28 pb-16 grid md:grid-cols-12 gap-10 items-center"
+        >
           <div className="md:col-span-5 lg:col-span-5">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -214,7 +212,6 @@ export default function Home() {
             </motion.div>
           </div>
 
-          {/* Pinterest-style auto-scrolling photo columns */}
           <div className="md:col-span-7 lg:col-span-7 relative h-[600px] md:h-[680px] hidden md:grid grid-cols-3 gap-3 [mask-image:linear-gradient(to_bottom,transparent_0%,black_12%,black_88%,transparent_100%)]">
             {heroPhotoColumns.map((col, idx) => (
               <div key={idx} className="overflow-hidden">
@@ -239,42 +236,7 @@ export default function Home() {
         </motion.div>
       </section>
 
-      {/* CATEGORY QUICK NAV */}
-      <section className="py-10 border-y border-border bg-white">
-        <div className="container mx-auto px-4">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-50px" }}
-            variants={{
-              hidden: {},
-              visible: { transition: { staggerChildren: 0.05 } },
-            }}
-            className="grid grid-cols-3 md:grid-cols-6 gap-4"
-          >
-            {categories.map((c) => (
-              <motion.div
-                key={c.href}
-                variants={{
-                  hidden: { opacity: 0, y: 20 },
-                  visible: { opacity: 1, y: 0 },
-                }}
-              >
-                <Link href={c.href}>
-                  <div className="group flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-muted/60 transition-colors cursor-pointer">
-                    <div className={`h-14 w-14 rounded-2xl ${c.color} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
-                      <c.icon className="h-6 w-6" />
-                    </div>
-                    <span className="text-xs font-medium">{c.label}</span>
-                  </div>
-                </Link>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* PROMO BANNER — auto-sliding center-focus carousel */}
+      {/* ── PROMO BANNER — Multi-card sliding carousel ── */}
       <section id="promo" className="relative py-16 bg-white overflow-hidden">
         <div className="container mx-auto px-4 mb-8">
           <motion.div
@@ -282,239 +244,180 @@ export default function Home() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
+            className="flex items-end justify-between"
           >
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-3 py-1 text-xs font-bold mb-3">
-              <Tag className="h-3.5 w-3.5" /> PROMO BERJALAN
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-3 py-1 text-xs font-bold mb-3">
+                <Tag className="h-3.5 w-3.5" /> PROMO BERJALAN
+              </div>
+              <h2 className="text-3xl md:text-5xl font-bold tracking-tight">Hemat sekarang.</h2>
             </div>
-            <h2 className="text-3xl md:text-5xl font-bold tracking-tight">Hemat sekarang.</h2>
+            {n > 1 && (
+              <div className="hidden sm:flex items-center gap-2">
+                <button
+                  onClick={promoPrev}
+                  className="h-9 w-9 rounded-full border border-border bg-background flex items-center justify-center hover:bg-muted shadow-sm transition-colors"
+                  aria-label="Sebelumnya"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={promoNext}
+                  className="h-9 w-9 rounded-full border border-border bg-background flex items-center justify-center hover:bg-muted shadow-sm transition-colors"
+                  aria-label="Berikutnya"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </motion.div>
         </div>
 
         {promoBanners.length > 0 ? (
           <>
-            {/* ── MOBILE: single full-width card with swipe ── */}
-            {isMobile ? (
-              <div
-                className="relative px-4"
-                onTouchStart={(e) => { promoTouchStartX.current = e.touches[0].clientX; }}
-                onTouchEnd={(e) => {
-                  if (promoTouchStartX.current === null) return;
-                  const dx = e.changedTouches[0].clientX - promoTouchStartX.current;
-                  if (dx < -40) promoNext();
-                  else if (dx > 40) promoPrev();
-                  promoTouchStartX.current = null;
-                }}
-              >
-                {promoBanners.map((p, i) => (
-                  <div
-                    key={p.id}
-                    style={{
-                      display: i === promoActive ? "block" : "none",
-                    }}
-                  >
-                    <div className="rounded-2xl overflow-hidden bg-card border border-border shadow-[0_6px_32px_rgba(0,0,0,0.14)]">
-                      <div className="relative overflow-hidden bg-muted" style={{ aspectRatio: "4/3" }}>
-                        {p.gambarUrl ? (
-                          <img src={p.gambarUrl} alt={p.judul} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-primary/30 to-amber-200 flex items-center justify-center">
-                            <Sparkles className="h-12 w-12 text-white" />
+            <div
+              className="relative"
+              onMouseEnter={() => { promoHovered.current = true; }}
+              onMouseLeave={() => { promoHovered.current = false; }}
+              onTouchStart={(e) => { promoDragStartX.current = e.touches[0].clientX; }}
+              onTouchEnd={(e) => {
+                if (promoDragStartX.current === null) return;
+                const dx = e.changedTouches[0].clientX - promoDragStartX.current;
+                if (dx < -40) promoNext();
+                else if (dx > 40) promoPrev();
+                promoDragStartX.current = null;
+              }}
+            >
+              {/* Track */}
+              <div className="overflow-hidden px-4 sm:px-8 md:px-12">
+                <div
+                  className="flex gap-4 transition-transform duration-500 ease-in-out"
+                  style={{
+                    transform: `translateX(calc(-${promoIdx} * (min(320px, 80vw) + 16px)))`,
+                  }}
+                >
+                  {promoBanners.map((p, i) => {
+                    const isActive = i === promoIdx;
+                    return (
+                      <div
+                        key={p.id}
+                        onClick={() => !isActive && setPromoIdx(i)}
+                        className="flex-shrink-0 transition-all duration-500"
+                        style={{
+                          width: "clamp(240px, 72vw, 320px)",
+                          opacity: isActive ? 1 : 0.65,
+                          transform: isActive ? "scale(1)" : "scale(0.96)",
+                          cursor: isActive ? "default" : "pointer",
+                        }}
+                      >
+                        <div className={`rounded-2xl overflow-hidden bg-card border transition-shadow duration-300 ${isActive ? "border-primary/30 shadow-[0_8px_40px_rgba(0,0,0,0.14)]" : "border-border shadow-md"}`}>
+                          <div className="relative overflow-hidden bg-muted" style={{ aspectRatio: "4/3" }}>
+                            {p.gambarUrl ? (
+                              <img
+                                src={p.gambarUrl}
+                                alt={p.judul}
+                                className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-br from-primary/30 to-amber-200 flex items-center justify-center">
+                                <Sparkles className="h-10 w-10 text-white" />
+                              </div>
+                            )}
+                            {(p as any).badge && (
+                              <Badge className="absolute top-3 left-3 bg-primary text-primary-foreground rounded-full shadow text-[10px] px-2 py-0.5">
+                                {(p as any).badge}
+                              </Badge>
+                            )}
+                            {isActive && (
+                              <div className="absolute inset-0 ring-2 ring-primary/20 rounded-2xl pointer-events-none" />
+                            )}
                           </div>
-                        )}
-                        {p.badge && (
-                          <Badge className="absolute top-3 left-3 bg-primary text-primary-foreground rounded-full shadow text-xs">
-                            {p.badge}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="p-4">
-                        <h3 className="font-bold text-base mb-1 line-clamp-1">{p.judul}</h3>
-                        <p className="text-sm text-muted-foreground line-clamp-2">{p.deskripsi}</p>
-                        {p.tanggalBerakhir && (
-                          <p className="text-[11px] text-muted-foreground/50 mt-2">
-                            s/d {new Date(p.tanggalBerakhir).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {/* Mobile prev/next */}
-                {promoBanners.length > 1 && (
-                  <div className="flex items-center justify-between mt-4 px-1">
-                    <button onClick={promoPrev} className="h-9 w-9 rounded-full border border-border bg-background flex items-center justify-center hover:bg-muted shadow-sm" aria-label="Sebelumnya">
-                      <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    <div className="flex items-center gap-1.5">
-                      {promoBanners.map((_, i) => (
-                        <button key={i} onClick={() => setPromoActive(i)} aria-label={`Promo ${i + 1}`}
-                          style={{ width: i === promoActive ? 20 : 7, height: 7, borderRadius: 999, background: i === promoActive ? "hsl(var(--primary))" : "hsl(var(--foreground)/0.2)", border: "none", padding: 0, cursor: "pointer", transition: "all 0.3s ease" }}
-                        />
-                      ))}
-                    </div>
-                    <button onClick={promoNext} className="h-9 w-9 rounded-full border border-border bg-background flex items-center justify-center hover:bg-muted shadow-sm" aria-label="Berikutnya">
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* ── TABLET & DESKTOP: 3-card or 5-card center-focus ── */
-              <div
-                className="relative w-full max-w-7xl mx-auto"
-                style={{ height: isTablet ? 420 : 480 }}
-                onMouseEnter={() => { promoHovered.current = true; }}
-                onMouseLeave={() => { promoHovered.current = false; }}
-              >
-                <div className="relative w-full h-full overflow-hidden">
-                  {(() => {
-                    const n = promoBanners.length;
-
-                    // Slot definitions: [xOffset px, scale, opacity, zIndex]
-                    // Desktop: 5-card layout with generous spacing
-                    // Tablet: 3-card layout
-                    type SlotDef = [number, number, number, number];
-                    const desktopDefs: Record<string, SlotDef> = {
-                      "far-left":  [-500, 0.82, 0.82, 1],
-                      "left":      [-250, 0.96, 0.95, 4],
-                      "center":    [   0, 1.12, 1.00, 10],
-                      "right":     [ 250, 0.96, 0.95, 4],
-                      "far-right": [ 500, 0.82, 0.82, 1],
-                    };
-                    const tabletDefs: Record<string, SlotDef> = {
-                      "left":   [-200, 0.92, 0.9, 2],
-                      "center": [   0, 1.08, 1.00, 10],
-                      "right":  [ 200, 0.92, 0.9, 2],
-                    };
-                    const slotDefs = isTablet ? tabletDefs : desktopDefs;
-
-                    type SlotKey = string;
-                    const buildSlots = (): { idx: number; slot: SlotKey }[] => {
-                      if (isTablet) {
-                        if (n === 1) return [{ idx: 0, slot: "center" }];
-                        if (n === 2) return [
-                          { idx: (promoActive - 1 + n) % n, slot: "left" },
-                          { idx: promoActive, slot: "center" },
-                        ];
-                        return [
-                          { idx: (promoActive - 1 + n) % n, slot: "left" },
-                          { idx: promoActive, slot: "center" },
-                          { idx: (promoActive + 1) % n, slot: "right" },
-                        ];
-                      }
-                      // Desktop: up to 5 cards
-                      if (n === 1) return [{ idx: 0, slot: "center" }];
-                      if (n === 2) return [
-                        { idx: (promoActive - 1 + n) % n, slot: "left" },
-                        { idx: promoActive, slot: "center" },
-                      ];
-                      if (n === 3) return [
-                        { idx: (promoActive - 1 + n) % n, slot: "left" },
-                        { idx: promoActive, slot: "center" },
-                        { idx: (promoActive + 1) % n, slot: "right" },
-                      ];
-                      if (n === 4) return [
-                        { idx: (promoActive - 1 + n) % n, slot: "left" },
-                        { idx: promoActive, slot: "center" },
-                        { idx: (promoActive + 1) % n, slot: "right" },
-                        { idx: (promoActive + 2) % n, slot: "far-right" },
-                      ];
-                      return [
-                        { idx: (promoActive - 2 + n) % n, slot: "far-left" },
-                        { idx: (promoActive - 1 + n) % n, slot: "left" },
-                        { idx: promoActive, slot: "center" },
-                        { idx: (promoActive + 1) % n, slot: "right" },
-                        { idx: (promoActive + 2) % n, slot: "far-right" },
-                      ];
-                    };
-
-                    const cardW = isTablet ? "clamp(280px, 42vw, 430px)" : "clamp(300px, 22vw, 360px)";
-
-                    return buildSlots().map(({ idx, slot }) => {
-                      const p = promoBanners[idx];
-                      const [xOffset, scale, opacity, zIndex] = slotDefs[slot];
-                      const isCenter = slot === "center";
-                      const isAdj = slot === "left" || slot === "right";
-                      return (
-                        <div
-                          key={p.id + slot}
-                          onClick={() => !isCenter && setPromoActive(idx)}
-                          style={{
-                            position: "absolute",
-                            left: "50%",
-                            top: "50%",
-                            width: cardW,
-                            transform: `translate(calc(-50% + ${xOffset}px), -50%) scale(${scale})`,
-                            opacity,
-                            zIndex,
-                            transition: "transform 0.48s cubic-bezier(0.4,0,0.2,1), opacity 0.48s ease",
-                            cursor: isCenter ? "default" : "pointer",
-                            transformOrigin: "center center",
-                          }}
-                        >
-                          <div
-                            className={`rounded-[1.5rem] overflow-hidden bg-card border ${
-                              isCenter
-                                ? "border-border/80 shadow-[0_10px_48px_rgba(0,0,0,0.16)]"
-                                : isAdj
-                                ? "border-border/50 shadow-lg"
-                                : "border-border/30 shadow-md"
-                            } group`}
-                          >
-                            <div className="relative overflow-hidden bg-muted" style={{ aspectRatio: "4/3" }}>
-                              {p.gambarUrl ? (
-                                <img src={p.gambarUrl} alt={p.judul} className={`w-full h-full object-cover transition-transform duration-500 ${isCenter ? "group-hover:scale-105" : ""}`} />
-                              ) : (
-                                <div className="w-full h-full bg-gradient-to-br from-primary/30 to-amber-200 flex items-center justify-center">
-                                  <Sparkles className={`text-white ${isCenter ? "h-12 w-12" : "h-8 w-8"}`} />
-                                </div>
-                              )}
-                              {p.badge && (
-                                <Badge className="absolute top-3 left-3 bg-primary text-primary-foreground rounded-full shadow text-[10px] px-2 py-0.5">
-                                  {p.badge}
-                                </Badge>
-                              )}
-                            </div>
-                            <div className={isCenter ? "p-4" : "p-3"}>
-                              <h3 className={`font-bold line-clamp-1 ${isCenter ? "text-xl mb-1" : "text-sm mb-0.5"}`}>{p.judul}</h3>
-                              <p className={`text-muted-foreground line-clamp-2 ${isCenter ? "text-sm" : "text-xs"}`}>{p.deskripsi}</p>
-                              {p.tanggalBerakhir && isCenter && (
-                                <p className="text-[10px] text-muted-foreground/50 mt-2">
-                                  s/d {new Date(p.tanggalBerakhir).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
-                                </p>
-                              )}
-                            </div>
+                          <div className="p-4">
+                            <h3 className="font-bold text-base mb-1 line-clamp-1">{p.judul}</h3>
+                            <p className="text-sm text-muted-foreground line-clamp-2">{p.deskripsi}</p>
+                            {(p as any).tanggalBerakhir && (
+                              <p className="text-[11px] text-muted-foreground/50 mt-2">
+                                s/d {new Date((p as any).tanggalBerakhir).toLocaleDateString("id-ID", {
+                                  day: "numeric", month: "short", year: "numeric",
+                                })}
+                              </p>
+                            )}
+                            {p.link && isActive && (
+                              <a
+                                href={p.link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 mt-3 text-xs font-semibold text-primary hover:underline"
+                              >
+                                Lihat promo <ArrowUpRight className="h-3 w-3" />
+                              </a>
+                            )}
                           </div>
                         </div>
-                      );
-                    });
-                  })()}
-
-                  {/* Edge fade */}
-                  <div className="pointer-events-none absolute inset-y-0 left-0 w-6 z-20 bg-gradient-to-r from-white/90 to-transparent" />
-                  <div className="pointer-events-none absolute inset-y-0 right-0 w-6 z-20 bg-gradient-to-l from-white/90 to-transparent" />
+                      </div>
+                    );
+                  })}
                 </div>
-
-                {/* Arrows */}
-                {promoBanners.length > 1 && (
-                  <>
-                    <button onClick={promoPrev} className="absolute left-3 top-1/2 -translate-y-1/2 z-30 h-9 w-9 rounded-full border border-border bg-background/95 flex items-center justify-center hover:bg-muted transition-colors shadow-md" aria-label="Sebelumnya">
-                      <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    <button onClick={promoNext} className="absolute right-3 top-1/2 -translate-y-1/2 z-30 h-9 w-9 rounded-full border border-border bg-background/95 flex items-center justify-center hover:bg-muted transition-colors shadow-md" aria-label="Berikutnya">
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
-                  </>
-                )}
               </div>
-            )}
 
-            {/* Dot indicators — shown for tablet/desktop below the track */}
-            {!isMobile && (
-              <div className="flex items-center justify-center gap-2 mt-6">
+              {/* Mobile arrow buttons */}
+              {n > 1 && (
+                <div className="flex sm:hidden items-center justify-between mt-4 px-4">
+                  <button
+                    onClick={promoPrev}
+                    className="h-9 w-9 rounded-full border border-border bg-background flex items-center justify-center hover:bg-muted shadow-sm"
+                    aria-label="Sebelumnya"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <div className="flex items-center gap-1.5">
+                    {promoBanners.map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setPromoIdx(i)}
+                        aria-label={`Promo ${i + 1}`}
+                        style={{
+                          width: i === promoIdx ? 20 : 7,
+                          height: 7,
+                          borderRadius: 999,
+                          background: i === promoIdx ? "hsl(var(--primary))" : "hsl(var(--foreground)/0.2)",
+                          border: "none",
+                          padding: 0,
+                          cursor: "pointer",
+                          transition: "all 0.3s ease",
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <button
+                    onClick={promoNext}
+                    className="h-9 w-9 rounded-full border border-border bg-background flex items-center justify-center hover:bg-muted shadow-sm"
+                    aria-label="Berikutnya"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Dot indicators — desktop */}
+            {n > 1 && (
+              <div className="hidden sm:flex items-center justify-center gap-2 mt-6">
                 {promoBanners.map((_, i) => (
-                  <button key={i} onClick={() => setPromoActive(i)} aria-label={`Promo ${i + 1}`}
-                    style={{ width: i === promoActive ? 24 : 8, height: 8, borderRadius: 999, background: i === promoActive ? "hsl(var(--primary))" : "hsl(var(--foreground)/0.2)", border: "none", padding: 0, cursor: "pointer", transition: "all 0.35s ease" }}
+                  <button
+                    key={i}
+                    onClick={() => setPromoIdx(i)}
+                    aria-label={`Promo ${i + 1}`}
+                    style={{
+                      width: i === promoIdx ? 28 : 8,
+                      height: 8,
+                      borderRadius: 999,
+                      background: i === promoIdx ? "hsl(var(--primary))" : "hsl(var(--foreground)/0.15)",
+                      border: "none",
+                      padding: 0,
+                      cursor: "pointer",
+                      transition: "all 0.35s ease",
+                    }}
                   />
                 ))}
               </div>
@@ -533,7 +436,7 @@ export default function Home() {
         )}
       </section>
 
-      {/* PINTEREST MASONRY GALLERY */}
+      {/* ── KARYA KAMI — real portfolio from DB ── */}
       <section className="py-20 bg-white">
         <div className="container mx-auto px-4">
           <motion.div
@@ -543,42 +446,51 @@ export default function Home() {
             transition={{ duration: 0.6 }}
             className="flex items-end justify-between mb-10"
           >
-            <div>
-              <h2 className="text-4xl md:text-6xl font-bold tracking-tight font-serif italic">Karya kami.</h2>
-            </div>
+            <h2 className="text-4xl md:text-6xl font-bold tracking-tight font-serif italic">Karya kami.</h2>
             <Link href="/portfolio" className="text-sm font-semibold text-primary hover:underline inline-flex items-center gap-1.5">
               Lihat semua <ArrowRight className="h-4 w-4" />
             </Link>
           </motion.div>
 
-          <div className="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
-            {galleryImages.map((img, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 40 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-80px" }}
-                transition={{ duration: 0.6, delay: (i % 4) * 0.08 }}
-                className={`break-inside-avoid relative group overflow-hidden rounded-2xl ${img.h} bg-muted cursor-pointer`}
-              >
-                <img
-                  src={img.src}
-                  alt={img.label}
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-4 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-300">
-                  <span className="inline-flex items-center gap-1.5 text-white font-semibold text-sm">
-                    {img.label} <ArrowUpRight className="h-4 w-4" />
-                  </span>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+          {galleryItems.length > 0 ? (
+            <div className="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
+              {galleryItems.map((img, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 40 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-80px" }}
+                  transition={{ duration: 0.6, delay: (i % 4) * 0.08 }}
+                  className={`break-inside-avoid relative group overflow-hidden rounded-2xl ${img.h} bg-muted cursor-pointer`}
+                >
+                  <img
+                    src={img.src}
+                    alt={img.label}
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  {img.label && (
+                    <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-4 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                      <span className="inline-flex items-center gap-1.5 text-white font-semibold text-sm">
+                        {img.label} <ArrowUpRight className="h-4 w-4" />
+                      </span>
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <div className="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
+              {Array(8).fill(0).map((_, i) => (
+                <div key={i} className={`break-inside-avoid rounded-2xl ${MASONRY_HEIGHTS[i % MASONRY_HEIGHTS.length]} bg-muted animate-pulse`} />
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
-      {/* PAKET POPULER */}
+      {/* ── PAKET FAVORIT — connected to DB ── */}
       <section className="py-20 bg-foreground text-background">
         <div className="container mx-auto px-4">
           <motion.div
@@ -602,18 +514,17 @@ export default function Home() {
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
           >
             {loadingPaket
-              ? Array(4)
-                  .fill(0)
-                  .map((_, i) => (
-                    <Card key={i} className="overflow-hidden bg-white/5 border-white/10">
-                      <Skeleton className="h-56 w-full rounded-none" />
-                      <CardContent className="p-5">
-                        <Skeleton className="h-5 w-3/4 mb-2" />
-                        <Skeleton className="h-4 w-1/2" />
-                      </CardContent>
-                    </Card>
-                  ))
-              : popularPackages.map((paket) => (
+              ? Array(4).fill(0).map((_, i) => (
+                  <Card key={i} className="overflow-hidden bg-white/5 border-white/10">
+                    <Skeleton className="h-56 w-full rounded-none" />
+                    <CardContent className="p-5">
+                      <Skeleton className="h-5 w-3/4 mb-2" />
+                      <Skeleton className="h-4 w-1/2" />
+                    </CardContent>
+                  </Card>
+                ))
+              : popularPackages.length > 0
+              ? popularPackages.map((paket) => (
                   <motion.div
                     key={paket.id}
                     variants={{
@@ -624,8 +535,18 @@ export default function Home() {
                   >
                     <Link href={`/booking?paket=${paket.id}`}>
                       <Card className="overflow-hidden bg-white/5 border-white/10 hover:border-amber-300/40 transition-colors cursor-pointer h-full group">
-                        <div className="aspect-[4/5] bg-gradient-to-br from-primary/30 to-amber-200/20 relative overflow-hidden flex items-center justify-center">
-                          <Camera className="h-14 w-14 text-white/30 group-hover:scale-110 transition-transform duration-500" />
+                        <div className="aspect-[4/5] relative overflow-hidden bg-gradient-to-br from-primary/30 to-amber-200/20">
+                          {(paket as any).fotoUrl ? (
+                            <img
+                              src={(paket as any).fotoUrl}
+                              alt={paket.namaPaket}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Camera className="h-14 w-14 text-white/30 group-hover:scale-110 transition-transform duration-500" />
+                            </div>
+                          )}
                           <Badge className="absolute top-3 left-3 bg-amber-400 text-foreground rounded-full font-bold">
                             ★ Populer
                           </Badge>
@@ -642,12 +563,18 @@ export default function Home() {
                       </Card>
                     </Link>
                   </motion.div>
-                ))}
+                ))
+              : (
+                <div className="col-span-4 text-center text-background/50 py-10">
+                  Belum ada paket populer.
+                </div>
+              )
+            }
           </motion.div>
         </div>
       </section>
 
-      {/* AI ASSISTANT QUICK CTA */}
+      {/* ── AI ASSISTANT CTA ── */}
       <section className="py-20 bg-white">
         <div className="container mx-auto px-4">
           <motion.div
@@ -678,7 +605,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* TESTIMONI MARQUEE */}
+      {/* ── TESTIMONI — from DB, admin-managed ── */}
       <section className="py-20 bg-white overflow-hidden border-t border-border">
         <div className="container mx-auto px-4 mb-10">
           <motion.div
@@ -686,31 +613,36 @@ export default function Home() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
+            className="flex items-end justify-between"
           >
             <h2 className="text-4xl md:text-6xl font-bold font-serif italic">Cerita mereka.</h2>
+            <Link href="/testimoni" className="text-sm font-semibold text-primary hover:underline inline-flex items-center gap-1.5">
+              Lihat semua <ArrowRight className="h-4 w-4" />
+            </Link>
           </motion.div>
         </div>
 
         {recentTestimonials.length > 0 ? (
           <div className="relative">
-            <div className="flex gap-5 animate-marquee">
+            <div
+              className="flex gap-5 animate-marquee"
+              style={{ width: "max-content" }}
+            >
               {[...recentTestimonials, ...recentTestimonials].map((t, i) => (
-                <Card key={`${t.id}-${i}`} className="shrink-0 w-[340px] border-border bg-background">
+                <Card key={`${t.id}-${i}`} className="shrink-0 w-[320px] sm:w-[360px] border-border bg-background">
                   <CardContent className="p-6">
                     <div className="flex gap-0.5 text-amber-400 mb-3">
-                      {Array(5)
-                        .fill(0)
-                        .map((_, j) => (
-                          <Star key={j} size={14} fill={j < t.rating ? "currentColor" : "none"} />
-                        ))}
+                      {Array(5).fill(0).map((_, j) => (
+                        <Star key={j} size={14} fill={j < t.rating ? "currentColor" : "none"} />
+                      ))}
                     </div>
                     <p className="text-sm leading-relaxed line-clamp-4 mb-5">"{t.komentar}"</p>
                     <div className="flex items-center gap-3">
                       {t.fotoUrl ? (
-                        <img src={t.fotoUrl} alt={t.namaTampil} className="w-10 h-10 rounded-full object-cover" />
+                        <img src={t.fotoUrl} alt={t.namaTampil} className="w-10 h-10 rounded-full object-cover shrink-0" />
                       ) : (
-                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary uppercase text-sm">
-                          {t.namaTampil.charAt(0)}
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary uppercase text-sm shrink-0">
+                          {t.namaTampil?.charAt(0) ?? "?"}
                         </div>
                       )}
                       <div>
@@ -722,23 +654,17 @@ export default function Home() {
                 </Card>
               ))}
             </div>
+            <div className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-white to-transparent z-10" />
+            <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-white to-transparent z-10" />
           </div>
         ) : (
           <div className="container mx-auto px-4 text-center text-muted-foreground py-10">
-            Belum ada testimoni.
+            Belum ada testimoni yang disetujui.
           </div>
         )}
-
-        <div className="container mx-auto px-4 mt-10 text-center">
-          <Link href="/testimoni">
-            <Button variant="outline" className="rounded-full">
-              Lihat semua testimoni <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </Link>
-        </div>
       </section>
 
-      {/* FINAL CTA */}
+      {/* ── FINAL CTA ── */}
       <section className="py-16 md:py-24 bg-white">
         <div className="container mx-auto px-4 text-center">
           <motion.div
