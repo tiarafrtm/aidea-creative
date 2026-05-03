@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
 import { db } from "@workspace/db";
-import { profilesTable, bookingTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { profilesTable, bookingTable, pesananProdukTable, itemPesananTable, testimoniTable, chatSessionTable } from "@workspace/db";
+import { eq, sql, inArray } from "drizzle-orm";
 import { requireAdmin } from "../middlewares/auth";
 
 const router = Router();
@@ -66,20 +66,47 @@ router.patch("/admin/users/:id", requireAdmin, async (req, res) => {
 
 router.delete("/admin/users/:id", requireAdmin, async (req, res) => {
   try {
-    if (req.authUser?.id === req.params.id) {
+    const userId = req.params.id;
+    if (req.authUser?.id === userId) {
       return res.status(400).json({ error: "Tidak bisa menghapus akun sendiri." });
     }
-    await db.delete(profilesTable).where(eq(profilesTable.id, req.params.id));
+
+    // 1. Hapus item_pesanan (FK → pesanan_produk)
+    const pesananIds = await db
+      .select({ id: pesananProdukTable.id })
+      .from(pesananProdukTable)
+      .where(eq(pesananProdukTable.pelangganId, userId));
+    if (pesananIds.length > 0) {
+      await db.delete(itemPesananTable).where(
+        inArray(itemPesananTable.pesananId, pesananIds.map((p) => p.id))
+      );
+    }
+
+    // 2. Hapus pesanan_produk
+    await db.delete(pesananProdukTable).where(eq(pesananProdukTable.pelangganId, userId));
+
+    // 3. Hapus booking & testimoni
+    await db.delete(bookingTable).where(eq(bookingTable.pelangganId, userId));
+    await db.delete(testimoniTable).where(eq(testimoniTable.pelangganId, userId));
+
+    // 4. Hapus chat sessions milik user (tidak ada FK constraint ketat)
+    await db.delete(chatSessionTable).where(eq(chatSessionTable.userId, userId));
+
+    // 5. Hapus profil
+    await db.delete(profilesTable).where(eq(profilesTable.id, userId));
+
+    // 6. Hapus dari Supabase Auth
     if (supabaseAdmin) {
       try {
-        await supabaseAdmin.auth.admin.deleteUser(req.params.id);
+        await supabaseAdmin.auth.admin.deleteUser(userId);
       } catch {
         // ignore — profile already removed
       }
     }
+
     res.status(204).send();
-  } catch {
-    res.status(400).json({ error: "Bad request" });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Gagal menghapus pengguna." });
   }
 });
 
