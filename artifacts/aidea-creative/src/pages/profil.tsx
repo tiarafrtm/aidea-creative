@@ -1331,7 +1331,7 @@ export default function Profil() {
 
       {/* ── Pesanan Detail Dialog ── */}
       <Dialog open={!!selectedPesanan} onOpenChange={(open) => !open && setSelectedPesanan(null)}>
-        <DialogContent className="w-[calc(100%-2rem)] sm:w-full max-w-md rounded-xl max-h-[88vh] overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        <DialogContent className="w-[calc(100vw-2rem)] sm:w-full max-w-md mx-auto rounded-xl max-h-[88vh] overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden p-5 sm:p-6">
           {selectedPesanan && (
             <>
               <DialogHeader>
@@ -1492,7 +1492,7 @@ export default function Profil() {
 
       {/* ── Booking Detail Dialog ── */}
       <Dialog open={!!selectedBooking} onOpenChange={(open) => !open && setSelectedBooking(null)}>
-        <DialogContent className="w-[calc(100%-2rem)] sm:w-full max-w-md rounded-xl max-h-[85vh] overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        <DialogContent className="w-[calc(100vw-2rem)] sm:w-full max-w-md mx-auto rounded-xl max-h-[85vh] overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden p-5 sm:p-6">
           {selectedBooking && (
             <>
               <DialogHeader>
@@ -1692,7 +1692,7 @@ export default function Profil() {
 
       {/* ── Testimoni Dialog ── */}
       <Dialog open={!!testimoniDialog} onOpenChange={(open) => !open && setTestimoniDialog(null)}>
-        <DialogContent className="w-[calc(100%-2rem)] sm:w-full max-w-md rounded-xl">
+        <DialogContent className="w-[calc(100vw-2rem)] sm:w-full max-w-md mx-auto rounded-xl p-5 sm:p-6">
           {testimoniDialog && (
             <>
               <DialogHeader>

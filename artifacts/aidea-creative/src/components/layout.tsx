@@ -209,27 +209,34 @@ export function Layout({ children }: { children: ReactNode }) {
               </nav>
             </div>
 
-            <div className="border-t border-border p-5">
+            <div className="border-t border-border px-5 pt-4 pb-6">
               {user ? (
-                <div className="space-y-3">
-                  <div className="rounded-2xl border border-border bg-card p-4">
-                    <p className="text-xs text-muted-foreground">Masuk sebagai</p>
-                    <p className="mt-1 truncate text-sm font-semibold text-foreground">
-                      {profile?.nama_lengkap ?? user.email}
-                    </p>
+                <div className="space-y-2.5">
+                  <div className="rounded-2xl border border-border bg-card px-4 py-3 flex items-center gap-3 min-w-0">
+                    <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <User className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] text-muted-foreground leading-none mb-0.5">Masuk sebagai</p>
+                      <p className="text-sm font-semibold text-foreground truncate leading-snug">
+                        {profile?.nama_lengkap ?? user.email}
+                      </p>
+                    </div>
                   </div>
                   <Link href="/profil">
-                    <Button variant="outline" className="w-full rounded-full">
-                      <User className="mr-2 h-4 w-4" /> Profil Saya
+                    <Button variant="outline" className="w-full rounded-full justify-start gap-2">
+                      <User className="h-4 w-4" /> Profil Saya
                     </Button>
                   </Link>
                   {profile?.role === "admin" && (
                     <Link href="/dashboard">
-                      <Button variant="outline" className="w-full rounded-full">Dashboard Admin</Button>
+                      <Button className="w-full rounded-full justify-start gap-2 bg-foreground text-background hover:bg-foreground/90">
+                        <LayoutDashboard className="h-4 w-4" /> Dashboard Admin
+                      </Button>
                     </Link>
                   )}
-                  <Button variant="ghost" className="w-full rounded-full" onClick={signOut}>
-                    <LogOut className="mr-2 h-4 w-4" /> Keluar
+                  <Button variant="ghost" className="w-full rounded-full justify-start gap-2 text-muted-foreground hover:text-foreground" onClick={signOut}>
+                    <LogOut className="h-4 w-4" /> Keluar
                   </Button>
                 </div>
               ) : (

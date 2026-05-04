@@ -271,7 +271,7 @@ export default function Toko() {
                   <h3 className="font-semibold text-xs sm:text-sm leading-snug line-clamp-2 mb-2">
                     {produk.namaProduk}
                   </h3>
-                  <div className="mt-auto flex items-center justify-between gap-1.5">
+                  <div className="mt-auto flex flex-col gap-1.5">
                     <span className="font-bold text-xs sm:text-sm text-primary">
                       Rp {produk.harga.toLocaleString("id-ID")}
                     </span>
@@ -293,7 +293,7 @@ export default function Toko() {
                           duration: 2000,
                         });
                       }}
-                      className="h-7 px-2.5 text-xs rounded-full"
+                      className="h-8 w-full text-xs rounded-full"
                     >
                       <ShoppingCart className="h-3 w-3 mr-1" />
                       Tambah
